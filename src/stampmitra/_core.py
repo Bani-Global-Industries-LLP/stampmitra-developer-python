@@ -18,7 +18,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any, Awaitable, Callable, Dict, Mapping, Optional, TypeVar
+from typing import Any, Awaitable, Callable, Dict, List, Mapping, Optional, TypeVar, cast
 from urllib.parse import quote, urlencode
 
 import httpx
@@ -298,6 +298,27 @@ class Core:
             result = model_cls.model_construct(**data)
         result._response = meta
         return result
+
+    def parse_list(self, op: Op[T], response: httpx.Response) -> List[T]:
+        """Parse a JSON-array body (also tolerates ``{"<key>": [...]}`` / ``{"items": [...]}``)."""
+        try:
+            data: Any = response.json() if response.content else []
+        except ValueError:
+            data = []
+        if isinstance(data, dict):
+            data = next((v for v in data.values() if isinstance(v, list)), [])
+        out: List[T] = []
+        meta = ResponseMeta(
+            response.status_code, dict(response.headers.items()), response.headers.get("x-request-id"), response.content
+        )
+        for row in data if isinstance(data, list) else []:
+            try:
+                item: T = op.model.model_validate(row)
+            except PydanticValidationError:
+                item = cast(T, op.model.model_construct(**row) if isinstance(row, dict) else op.model())
+            item._response = meta
+            out.append(item)
+        return out
 
     # ---------------------------------------------------------------- logging
     def log_request(self, prep: PreparedRequest, attempt: int) -> None:

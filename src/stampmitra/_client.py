@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from types import TracebackType
-from typing import Any, Dict, Mapping, Optional, Type, TypedDict, TypeVar
+from typing import Any, Dict, List, Mapping, Optional, Type, TypedDict, TypeVar
 
 import httpx
 
@@ -110,7 +110,7 @@ class StampMitra:
         self.close()
 
     # -- transport --------------------------------------------------------
-    def _call(
+    def _send(
         self,
         op: Op[T],
         *,
@@ -118,7 +118,7 @@ class StampMitra:
         query: Optional[Mapping[str, Any]] = None,
         body: Optional[Dict[str, Any]] = None,
         options: Optional[RequestOptions] = None,
-    ) -> T:
+    ) -> httpx.Response:
         core = self._core
         prep: PreparedRequest = core.prepare(op, path_params=path_params, query=query, body=body, options=options)
         attempt = 0
@@ -138,7 +138,7 @@ class StampMitra:
                     continue
                 raise core.wrap_exception(exc) from exc
             core.log_response(prep, response, time.monotonic() - started)
-            if response.status_code >= 400:
+            if not 200 <= response.status_code < 300:
                 err: StampMitraError = core.error_from_response(response)
                 if core.should_retry_status(prep, response.status_code, attempt):
                     delay = core.backoff_delay(attempt, core.retry_after_seconds(response))
@@ -147,7 +147,13 @@ class StampMitra:
                     attempt += 1
                     continue
                 raise err
-            return core.parse_response(op, response)
+            return response
+
+    def _call(self, op: Op[T], **kw: Any) -> T:
+        return self._core.parse_response(op, self._send(op, **kw))
+
+    def _call_list(self, op: Op[T], **kw: Any) -> List[T]:
+        return self._core.parse_list(op, self._send(op, **kw))
 
 
 class AsyncStampMitra:
@@ -222,7 +228,7 @@ class AsyncStampMitra:
     ) -> None:
         await self.aclose()
 
-    async def _call(
+    async def _send(
         self,
         op: Op[T],
         *,
@@ -230,7 +236,7 @@ class AsyncStampMitra:
         query: Optional[Mapping[str, Any]] = None,
         body: Optional[Dict[str, Any]] = None,
         options: Optional[RequestOptions] = None,
-    ) -> T:
+    ) -> httpx.Response:
         core = self._core
         prep: PreparedRequest = core.prepare(op, path_params=path_params, query=query, body=body, options=options)
         attempt = 0
@@ -250,7 +256,7 @@ class AsyncStampMitra:
                     continue
                 raise core.wrap_exception(exc) from exc
             core.log_response(prep, response, time.monotonic() - started)
-            if response.status_code >= 400:
+            if not 200 <= response.status_code < 300:
                 err: StampMitraError = core.error_from_response(response)
                 if core.should_retry_status(prep, response.status_code, attempt):
                     delay = core.backoff_delay(attempt, core.retry_after_seconds(response))
@@ -259,4 +265,10 @@ class AsyncStampMitra:
                     attempt += 1
                     continue
                 raise err
-            return core.parse_response(op, response)
+            return response
+
+    async def _call(self, op: Op[T], **kw: Any) -> T:
+        return self._core.parse_response(op, await self._send(op, **kw))
+
+    async def _call_list(self, op: Op[T], **kw: Any) -> List[T]:
+        return self._core.parse_list(op, await self._send(op, **kw))

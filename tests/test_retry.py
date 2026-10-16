@@ -7,13 +7,13 @@ import respx
 from stampmitra import APIConnectionError, RateLimitError, RequestOptions, UpstreamError
 from tests.conftest import BASE
 
-OK = httpx.Response(200, json={"services": []})
+OK = httpx.Response(200, json=[])
 
 
 @respx.mock
 def test_get_retries_5xx_with_exponential_backoff(client, clock):
     route = respx.get(f"{BASE}/v1/services").mock(side_effect=[httpx.Response(502), httpx.Response(503), OK])
-    assert client.services.list().services == []
+    assert client.services.list() == []
     assert route.call_count == 3
     assert clock.sleeps == [0.5, 1.0]  # random()==1 -> full window: base*2**attempt
 

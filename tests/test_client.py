@@ -93,10 +93,10 @@ def test_options_headers_timeout_app_info():
 @respx.mock
 def test_x_api_key_not_needed_and_base_url_override():
     route = respx.get("https://sandbox.example/v1/services").mock(
-        return_value=httpx.Response(200, json={"services": [{"serviceCode": "estamp.x", "name": "X", "active": True}]})
+        return_value=httpx.Response(200, json=[{"serviceCode": "estamp.x", "name": "X", "isActive": True, "entitled": True}])
     )
     res = StampMitra(KEY, base_url="https://sandbox.example/").services.list()
-    assert route.called and res.services[0].service_code == "estamp.x"
+    assert route.called and res[0].service_code == "estamp.x"
 
 
 VALID_CASES = [

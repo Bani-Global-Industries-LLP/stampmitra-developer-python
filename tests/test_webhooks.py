@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 import pytest
 
-from stampmitra import StampMitra, WebhookEvent, WebhookSignatureError, webhooks
+from stampmitra import WEBHOOK_EVENT_TYPES, StampMitra, WebhookEvent, WebhookSignatureError, webhooks
 from tests.conftest import KEY
 
 FIXTURES: Dict[str, Any] = json.loads(
@@ -32,8 +32,20 @@ def test_shared_fixture_vectors(vec):
 def test_bytes_payload_and_event_fields():
     v = FIXTURES["vectors"][0]
     ev = webhooks.construct_event(v["payload"].encode(), v["timestamp"], v["signature"], v["secret"], now=NOW)
-    assert ev.id == "evt_01HZX3P0C4" and ev.type == "order.completed" and (ev.created_at or "").startswith("2026")
-    assert ev.data == {"orderId": "ord_01HZX3K9Q2", "status": "COMPLETED"}
+    assert ev.model_extra is not None and ev.model_extra["id"] == "evt_01HZX3P0C4"  # unknown fields preserved
+    assert ev.model_extra["data"] == {"orderId": "ord_01HZX3K9Q2", "status": "COMPLETED"}
+
+
+def test_event_envelope_fields_from_spec():
+    body = '{"coreOrderId":"core_order_1","coreEventType":"DOCUMENT_READY","occurredAt":"2026-09-25T09:05:00.000Z"}'
+    sig = webhooks.compute_signature(body, "1760605190", "s")
+    ev = webhooks.construct_event(body, "1760605190", sig, "s", now=NOW)
+    assert (ev.core_order_id, ev.core_event_type, ev.occurred_at) == (
+        "core_order_1",
+        "DOCUMENT_READY",
+        "2026-09-25T09:05:00.000Z",
+    )
+    assert "order.document_ready" in WEBHOOK_EVENT_TYPES
 
 
 def test_signature_helpers_and_client_attachment():
@@ -42,7 +54,7 @@ def test_signature_helpers_and_client_attachment():
     assert (webhooks.SIGNATURE_HEADER, webhooks.TIMESTAMP_HEADER) == ("X-Webhook-Signature", "X-Webhook-Timestamp")
     c = StampMitra(KEY)
     assert c.webhooks.verify_signature(v["payload"], int(v["timestamp"]), v["signature"], v["secret"], now=NOW)
-    assert c.webhooks.construct_event(v["payload"], v["timestamp"], v["signature"], v["secret"], now=NOW).id
+    assert c.webhooks.construct_event(v["payload"], v["timestamp"], v["signature"], v["secret"], now=NOW)
 
 
 def test_parsed_object_rejected_and_age_check_optional():

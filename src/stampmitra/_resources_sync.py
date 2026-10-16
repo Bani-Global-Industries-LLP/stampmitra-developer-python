@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Iterator, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Mapping, Optional
 
 from . import _ops as ops
 from ._core import RequestOptions
@@ -11,16 +11,23 @@ from .models import (
     ApiObject,
     BankAccountVerification,
     CinVerification,
+    DocumentDownloadUrl,
     DrivingLicenseVerification,
     GstinVerification,
     LogEntry,
     LogsPage,
+    OrderDetail,
+    OrderDocuments,
+    OrderPayment,
+    OrderReference,
+    OrderStatus,
     PanToGstin,
     PanToUdyam,
     PanVerification,
     PassportVerification,
+    PaymentIntent,
     RcVerification,
-    ServiceList,
+    Service,
     UdyamVerification,
     UsageSummary,
     VoterIdVerification,
@@ -85,10 +92,10 @@ class Verify(_Resource):
 
 
 class Services(_Resource):
-    def list(self, *, options: Options = None) -> ServiceList:
-        return self._c._call(ops.SERVICES_LIST, options=options)
+    def list(self, *, options: Options = None) -> List[Service]:
+        return self._c._call_list(ops.SERVICES_LIST, options=options)
 
-    def get(self, service_code: str, *, options: Options = None) -> ApiObject:
+    def get(self, service_code: str, *, options: Options = None) -> Service:
         return self._c._call(
             ops.SERVICES_GET, path_params={"serviceCode": ops.path_segment(service_code, "serviceCode")}, options=options
         )
@@ -126,23 +133,23 @@ class Estamp(_Resource):
 
 
 class Orders(_Resource):
-    def create(self, body: Mapping[str, Any], *, options: Options = None) -> ApiObject:
+    def create(self, body: Mapping[str, Any], *, options: Options = None) -> OrderReference:
         """Create an order. Idempotent: an ``Idempotency-Key`` is generated if you do not pass one."""
         return self._c._call(ops.ORDERS_CREATE, body=ops.order_body(body, self._c._v), options=options)
 
-    def get(self, order_id: str, *, options: Options = None) -> ApiObject:
+    def get(self, order_id: str, *, options: Options = None) -> OrderDetail:
         return self._c._call(ops.ORDERS_GET, path_params={"id": ops.path_segment(order_id, "id")}, options=options)
 
-    def get_status(self, order_id: str, *, options: Options = None) -> ApiObject:
+    def get_status(self, order_id: str, *, options: Options = None) -> OrderStatus:
         return self._c._call(ops.ORDERS_STATUS, path_params={"id": ops.path_segment(order_id, "id")}, options=options)
 
-    def get_payment(self, order_id: str, *, options: Options = None) -> ApiObject:
+    def get_payment(self, order_id: str, *, options: Options = None) -> OrderPayment:
         return self._c._call(ops.ORDERS_PAYMENT, path_params={"id": ops.path_segment(order_id, "id")}, options=options)
 
-    def list_documents(self, order_id: str, *, options: Options = None) -> ApiObject:
+    def list_documents(self, order_id: str, *, options: Options = None) -> OrderDocuments:
         return self._c._call(ops.ORDERS_DOCUMENTS, path_params={"id": ops.path_segment(order_id, "id")}, options=options)
 
-    def get_document_download(self, order_id: str, document_id: str, *, options: Options = None) -> ApiObject:
+    def get_document_download(self, order_id: str, document_id: str, *, options: Options = None) -> DocumentDownloadUrl:
         return self._c._call(
             ops.ORDERS_DOWNLOAD,
             path_params={"id": ops.path_segment(order_id, "id"), "documentId": ops.path_segment(document_id, "documentId")},
@@ -151,11 +158,11 @@ class Orders(_Resource):
 
 
 class PaymentIntents(_Resource):
-    def create(self, body: Mapping[str, Any], *, options: Options = None) -> ApiObject:
+    def create(self, body: Mapping[str, Any], *, options: Options = None) -> PaymentIntent:
         """Idempotent: an ``Idempotency-Key`` is generated if you do not pass one."""
         return self._c._call(ops.INTENTS_CREATE, body=dict(body), options=options)
 
-    def get(self, intent_id: str, *, options: Options = None) -> ApiObject:
+    def get(self, intent_id: str, *, options: Options = None) -> PaymentIntent:
         return self._c._call(ops.INTENTS_GET, path_params={"id": ops.path_segment(intent_id, "id")}, options=options)
 
 

@@ -96,7 +96,7 @@ client.webhooks.events.list(limit=20)
 client.webhooks.events.replay(event_id)
 ```
 
-Endpoints whose response contract is not yet fixed in the OpenAPI spec (e-Stamp, orders, payments) return an `ApiObject` (all keys as attributes; a non-object body is wrapped as `.data`). Raw-response access: every returned model has `.response` with `status_code`, `headers`, `request_id` and `content`.
+Endpoints the spec leaves unconstrained (the proxied e-Stamp schema, states, instruments, articles, duty calculation, parties, webhook events and replay) return an `ApiObject` (all keys as attributes; a non-object body is wrapped as `.data`). Raw-response access: every returned model has `.response` with `status_code`, `headers`, `request_id` and `content`.
 
 ## Error handling
 

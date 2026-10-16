@@ -41,7 +41,7 @@ def test_debug_logs_redact_secrets_and_pii(caplog):
 
 @respx.mock
 def test_x_api_key_header_redacted_and_custom_logger(caplog):
-    respx.get(f"{BASE}/v1/services").mock(return_value=httpx.Response(200, json={"services": []}))
+    respx.get(f"{BASE}/v1/services").mock(return_value=httpx.Response(200, json=[]))
     lg = logging.getLogger("my.app")
     with caplog.at_level(logging.DEBUG, logger="my.app"):
         StampMitra(KEY, logger=lg, default_headers={"x-api-key": "sk_test_zzzzzzzz99999999"}).services.list()

@@ -21,5 +21,5 @@ def receive() -> "tuple[str, int]":
         )
     except WebhookSignatureError as err:
         return str(err), 400
-    print("event", event.id, event.type)
+    print("event", event.core_order_id, event.core_event_type, event.occurred_at)
     return "ok", 200

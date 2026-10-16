@@ -7,8 +7,8 @@ pass RequestOptions(idempotency_key=...) to supply your own.
 from stampmitra import RequestOptions, StampMitra
 
 with StampMitra() as client:
-    services = client.services.list()
-    code = next((s.service_code for s in services.services if s.service_code), "estamp.instrument.rent_agreement")
+    services = client.services.list()  # a list of Service
+    code = next((s.service_code for s in services if s.service_code), "estamp.instrument.rent_agreement")
     order = client.orders.create(
         {
             "externalOrderId": "ord_ext_123",
@@ -19,5 +19,5 @@ with StampMitra() as client:
         options=RequestOptions(idempotency_key="ord_ext_123-create"),
     )
     print(order.to_dict())
-    order_id = str(order.id)
+    order_id = order.external_order_id or "ord_ext_123"
     print(client.orders.get_status(order_id).to_dict())

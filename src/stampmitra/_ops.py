@@ -16,15 +16,22 @@ from .models import (
     ApiObject,
     BankAccountVerification,
     CinVerification,
+    DocumentDownloadUrl,
     DrivingLicenseVerification,
     GstinVerification,
     LogsPage,
+    OrderDetail,
+    OrderDocuments,
+    OrderPayment,
+    OrderReference,
+    OrderStatus,
     PanToGstin,
     PanToUdyam,
     PanVerification,
     PassportVerification,
+    PaymentIntent,
     RcVerification,
-    ServiceList,
+    Service,
     StampMitraModel,
     UdyamVerification,
     UsageSummary,
@@ -43,10 +50,12 @@ class Op(Generic[T]):
     model: Type[T]
     #: POST ops that accept ``Idempotency-Key``; a UUIDv4 is generated when the caller gives none.
     auto_idempotency: bool = False
+    #: Response body is a JSON array of ``model`` (e.g. ``GET /v1/services``).
+    is_list: bool = False
 
 
-def _op(name: str, method: str, path: str, model: Type[T], auto_idempotency: bool = False) -> Op[T]:
-    return Op(name, method, path, model, auto_idempotency)
+def _op(name: str, method: str, path: str, model: Type[T], auto_idempotency: bool = False, is_list: bool = False) -> Op[T]:
+    return Op(name, method, path, model, auto_idempotency, is_list)
 
 
 # verify -------------------------------------------------------------------
@@ -63,8 +72,8 @@ PAN_TO_UDYAM = _op("verify.pan_to_udyam", "POST", "/v1/verify/pan-to-udyam", Pan
 BANK_ACCOUNT = _op("verify.bank_account", "POST", "/v1/verify/bank-account", BankAccountVerification)
 
 # services / estamp --------------------------------------------------------
-SERVICES_LIST = _op("services.list", "GET", "/v1/services", ServiceList)
-SERVICES_GET = _op("services.get", "GET", "/v1/services/{serviceCode}", ApiObject)
+SERVICES_LIST = _op("services.list", "GET", "/v1/services", Service, False, True)
+SERVICES_GET = _op("services.get", "GET", "/v1/services/{serviceCode}", Service)
 ESTAMP_SCHEMA = _op("estamp.get_schema", "GET", "/v1/estamp/schema/{serviceCode}", ApiObject)
 ESTAMP_STATES = _op("estamp.list_states", "GET", "/v1/estamp/states", ApiObject)
 ESTAMP_INSTRUMENTS = _op("estamp.list_instruments", "GET", "/v1/estamp/states/{stateCode}/instruments", ApiObject)
@@ -73,14 +82,16 @@ ESTAMP_DUTY = _op("estamp.calculate_duty", "POST", "/v1/estamp/duty/calculate", 
 ESTAMP_PARTIES = _op("estamp.add_parties", "POST", "/v1/estamp/orders/{orderId}/parties", ApiObject, True)
 
 # orders / payments --------------------------------------------------------
-ORDERS_CREATE = _op("orders.create", "POST", "/v1/orders", ApiObject, True)
-ORDERS_GET = _op("orders.get", "GET", "/v1/orders/{id}", ApiObject)
-ORDERS_STATUS = _op("orders.get_status", "GET", "/v1/orders/{id}/status", ApiObject)
-ORDERS_PAYMENT = _op("orders.get_payment", "GET", "/v1/orders/{id}/payment", ApiObject)
-ORDERS_DOCUMENTS = _op("orders.list_documents", "GET", "/v1/orders/{id}/documents", ApiObject)
-ORDERS_DOWNLOAD = _op("orders.get_document_download", "GET", "/v1/orders/{id}/documents/{documentId}/download", ApiObject)
-INTENTS_CREATE = _op("payments.intents.create", "POST", "/v1/payments/intents", ApiObject, True)
-INTENTS_GET = _op("payments.intents.get", "GET", "/v1/payments/intents/{id}", ApiObject)
+ORDERS_CREATE = _op("orders.create", "POST", "/v1/orders", OrderReference, True)
+ORDERS_GET = _op("orders.get", "GET", "/v1/orders/{id}", OrderDetail)
+ORDERS_STATUS = _op("orders.get_status", "GET", "/v1/orders/{id}/status", OrderStatus)
+ORDERS_PAYMENT = _op("orders.get_payment", "GET", "/v1/orders/{id}/payment", OrderPayment)
+ORDERS_DOCUMENTS = _op("orders.list_documents", "GET", "/v1/orders/{id}/documents", OrderDocuments)
+ORDERS_DOWNLOAD = _op(
+    "orders.get_document_download", "GET", "/v1/orders/{id}/documents/{documentId}/download", DocumentDownloadUrl
+)
+INTENTS_CREATE = _op("payments.intents.create", "POST", "/v1/payments/intents", PaymentIntent, True)
+INTENTS_GET = _op("payments.intents.get", "GET", "/v1/payments/intents/{id}", PaymentIntent)
 
 # usage / logs / webhooks --------------------------------------------------
 USAGE_SUMMARY = _op("usage.summary", "GET", "/v1/usage/summary", UsageSummary)

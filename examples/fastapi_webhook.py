@@ -22,5 +22,5 @@ async def receive(request: Request) -> "dict[str, bool]":
         )
     except WebhookSignatureError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
-    print("event", event.id, event.type)
+    print("event", event.core_order_id, event.core_event_type, event.occurred_at)
     return {"ok": True}
