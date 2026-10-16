@@ -17,6 +17,10 @@ jobs:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Bani-Global-Industries-LLP/stampmitra-developer-openapi
+          path: .spec-repo
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -26,10 +30,11 @@ jobs:
       - name: Lint
         run: ruff format --check . && ruff check .
       - name: Type check (mypy --strict)
-        if: matrix.python-version != '3.9'
         run: mypy
-      - name: Tests
+      - name: Tests (incl. conformance against the spec repo's mock server)
         run: pytest --cov=stampmitra
+        env:
+          STAMPMITRA_SPEC_DIR: ${{ github.workspace }}/.spec-repo
       - name: Spec coverage
         run: python scripts/check_spec_coverage.py
 
@@ -42,3 +47,18 @@ jobs:
           python-version: "3.12"
       - run: pip install -e . pip-audit
       - run: pip-audit --skip-editable
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build twine
+      - run: python -m build && twine check dist/*
+      - name: Install the wheel in a clean venv and smoke test
+        run: |
+          python -m venv /tmp/consumer
+          /tmp/consumer/bin/pip install dist/*.whl
+          cd /tmp && /tmp/consumer/bin/python -c "import stampmitra, importlib.resources as r; assert r.files('stampmitra').joinpath('py.typed').is_file(); print(stampmitra.__version__)"

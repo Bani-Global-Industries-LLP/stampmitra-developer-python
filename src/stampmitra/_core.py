@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any, Awaitable, Callable, Dict, List, Mapping, Optional, TypeVar, cast
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlsplit
 
 import httpx
 from pydantic import ValidationError as PydanticValidationError
@@ -114,7 +114,7 @@ class Core:
             raise ConfigurationError("timeout must be > 0")
         self._api_key = key
         self.environment = "live" if key.startswith("sk_live_") else "test"
-        self.base_url = (base_url or os.environ.get("STAMPMITRA_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
+        self.base_url = _validate_base_url((base_url or os.environ.get("STAMPMITRA_BASE_URL") or DEFAULT_BASE_URL).rstrip("/"))
         self.timeout = timeout
         self.max_retries = max_retries
         self.validate_input = validate_input
@@ -356,6 +356,17 @@ class Core:
             self.logger.debug(
                 "stampmitra retry %s %s reason=%s delay=%.3fs next_attempt=%d", prep.method, prep.url, reason, delay, attempt + 2
             )
+
+
+def _validate_base_url(url: str) -> str:
+    """Require https (plain http only for localhost, e.g. a local mock server) so the bearer key is never sent in clear text."""
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower()
+    if parts.scheme == "https" and host:
+        return url
+    if parts.scheme == "http" and host in ("localhost", "127.0.0.1", "::1"):
+        return url
+    raise ConfigurationError("base_url must be an https:// URL (http:// is only allowed for localhost).")
 
 
 def _has_header(headers: Mapping[str, str], name: str) -> bool:

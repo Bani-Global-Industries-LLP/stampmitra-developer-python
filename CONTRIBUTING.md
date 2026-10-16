@@ -11,6 +11,7 @@ ruff format .                                          # format
 ruff check .                                           # lint
 mypy                                                   # strict type check (src, scripts, examples, tests)
 pytest --cov=stampmitra                                # tests (HTTP mocked with respx; no network)
+STAMPMITRA_SPEC_DIR=../stampmitra-developer-openapi pytest tests/conformance   # conformance vs the spec repo's mock server (needs node; skipped if unset)
 python scripts/check_spec_coverage.py                  # every spec METHOD+path must have an SDK method
 pip-audit                                              # dependency audit
 python -m build                                        # sdist + wheel

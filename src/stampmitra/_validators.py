@@ -2,7 +2,7 @@
 
 Patterns are copied from the backend DTOs (``src/verify/dto/*``) so that bad
 input fails locally, before any network call (and therefore before billing).
-Each ``normalise_*`` function trims / upper-cases / strips separators and then
+Each ``normalise_*`` function trims / upper-cases and then
 checks the format, raising :class:`stampmitra.errors.ValidationError`.
 """
 
@@ -29,8 +29,6 @@ PHONE_RE = re.compile(r"^(?:\+?91|0)?[6-9][0-9]{9}$")
 
 NAME_MAX = 256
 
-_SEPARATORS = re.compile(r"[\s\-]+")
-
 
 def _text(value: object, field: str) -> str:
     if not isinstance(value, str):
@@ -38,10 +36,8 @@ def _text(value: object, field: str) -> str:
     return value
 
 
-def _check(value: object, field: str, pattern: re.Pattern[str], example: str, *, strip_separators: bool = False) -> str:
+def _check(value: object, field: str, pattern: re.Pattern[str], example: str) -> str:
     text = _text(value, field).strip().upper()
-    if strip_separators:
-        text = _SEPARATORS.sub("", text)
     if not pattern.match(text):
         raise ValidationError(f"{field} must match the format {example}", field=field)
     return text
@@ -68,7 +64,7 @@ def normalise_udyam(value: object) -> str:
 
 
 def normalise_vehicle_number(value: object) -> str:
-    return _check(value, "vehicleNumber", VEHICLE_RE, "MH12AB1234", strip_separators=True)
+    return _check(value, "vehicleNumber", VEHICLE_RE, "MH12AB1234")
 
 
 def normalise_account_number(value: object) -> str:
@@ -79,11 +75,11 @@ def normalise_account_number(value: object) -> str:
 
 
 def normalise_passport_file_number(value: object) -> str:
-    return _check(value, "fileNumber", PASSPORT_FILE_RE, "PA1079341954215", strip_separators=True)
+    return _check(value, "fileNumber", PASSPORT_FILE_RE, "PA1079341954215")
 
 
 def normalise_dl_number(value: object) -> str:
-    return _check(value, "dlNumber", DL_RE, "MH1420110012345", strip_separators=True)
+    return _check(value, "dlNumber", DL_RE, "MH1420110012345")
 
 
 def normalise_voter_id(value: object) -> str:

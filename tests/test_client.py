@@ -193,3 +193,18 @@ async def test_async_context_manager():
         assert c.environment == "test"
     with StampMitra(KEY) as s:
         assert s.base_url == BASE
+
+
+@pytest.mark.parametrize(
+    "url", ["http://api-b2b.stampmitra.in", "ftp://x.example", "api-b2b.stampmitra.in", "https://", "http://localhost.evil.com"]
+)
+def test_base_url_must_be_https(url):
+    with pytest.raises(ConfigurationError):
+        StampMitra("sk_test_abcdefgh12345678", base_url=url)
+
+
+@pytest.mark.parametrize(
+    "url", ["https://api-b2b.stampmitra.in/", "http://localhost:4010", "http://127.0.0.1:1", "http://[::1]:8"]
+)
+def test_base_url_allowed(url):
+    assert StampMitra("sk_test_abcdefgh12345678", base_url=url).base_url == url.rstrip("/")

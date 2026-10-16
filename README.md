@@ -1,12 +1,14 @@
 # stampmitra
 
-[![PyPI](https://img.shields.io/badge/pypi-stampmitra-blue)](https://pypi.org/project/stampmitra/) [![CI](https://img.shields.io/badge/ci-placeholder-lightgrey)](.github/workflows/ci.yml) [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](pyproject.toml) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE) ![typed](https://img.shields.io/badge/typing-strict-informational)
+[![CI](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/actions/workflows/ci.yml/badge.svg)](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/actions/workflows/ci.yml) [![PyPI](https://img.shields.io/pypi/v/stampmitra)](https://pypi.org/project/stampmitra/) [![Python](https://img.shields.io/pypi/pyversions/stampmitra)](https://pypi.org/project/stampmitra/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE) ![typed](https://img.shields.io/badge/typing-strict-informational)
+
+> The PyPI and Python-version badges show "not found" until the first release is published (see [RELEASING.md](RELEASING.md)).
 
 Official Python SDK for the **StampMitra Developer API**: Indian identity and business verification (PAN, GSTIN, vehicle RC, Voter ID, Driving Licence, Passport, CIN, Udyam, bank account) and e-Stamp Paper orders. Sync and async clients, typed (`py.typed`, passes `mypy --strict`), `httpx` + `pydantic` v2 only.
 
-> **Pre-1.0 notice:** this is version 0.1.0. Minor releases may contain breaking changes until 1.0; see the [CHANGELOG](CHANGELOG.md). Not yet published to PyPI until the maintainers configure publishing (see [RELEASING.md](RELEASING.md)).
+> **Status: pre-1.0 (0.1.0).** Minor releases may contain breaking changes until 1.0; see the [CHANGELOG](CHANGELOG.md). Not yet published to PyPI until the maintainers configure publishing (see [RELEASING.md](RELEASING.md)).
 
-Docs: <https://developer.stampmitra.in/docs> | OpenAPI: <https://developer.stampmitra.in/openapi.json>
+Docs: <https://developer.stampmitra.in/docs> | Python SDK page: <https://developer.stampmitra.in/sdks/python> | OpenAPI: <https://developer.stampmitra.in/openapi.json>
 
 ## Install
 
@@ -14,7 +16,7 @@ Docs: <https://developer.stampmitra.in/docs> | OpenAPI: <https://developer.stamp
 pip install stampmitra
 ```
 
-Python 3.9+. Runtime dependencies: `httpx`, `pydantic>=2`.
+Supported: CPython 3.9, 3.10, 3.11, 3.12 and 3.13 (tested in CI). Runtime dependencies: `httpx>=0.27,<1`, `pydantic>=2.5,<3`.
 
 ## Quickstart
 
@@ -41,15 +43,32 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
+## Usage at a glance
+
+| Resource | Methods |
+| --- | --- |
+| `client.verify` | `pan`, `gstin`, `rc`, `voter_id`, `driving_license`, `passport`, `cin`, `udyam`, `pan_to_gstin`, `pan_to_udyam`, `bank_account` |
+| `client.services` | `list`, `get` |
+| `client.estamp` | `get_schema`, `list_states`, `list_instruments`, `list_articles`, `calculate_duty`, `add_parties` |
+| `client.orders` | `create`, `get`, `get_status`, `get_payment`, `list_documents`, `get_document_download` |
+| `client.payments.intents` | `create`, `get` |
+| `client.usage` | `summary` |
+| `client.logs` | `list`, `iter_all` |
+| `client.webhooks` | `events.list`, `events.iter_all`, `events.replay`, `verify_signature`, `construct_event` |
+
+`AsyncStampMitra` has the same surface; every method is a coroutine and `iter_all` is an async iterator. All 31 API operations are covered.
+
 ## Authentication
 
 Pass `api_key="sk_test_..."` or set `STAMPMITRA_API_KEY`. Sandbox keys are `sk_test_...` (free); production keys `sk_live_...` (metered). The constructor rejects keys that do not match `^sk_(test|live)_[A-Za-z0-9_-]{8,}$` unless you pass `allow_custom_key=True`. `client.environment` is `"test"` or `"live"`.
 
 **Security: server-side only.** Never ship `sk_` keys in browsers, mobile apps or public repositories. Do not log keys; the SDK never logs by default and always redacts `Authorization` / `x-api-key`.
 
+`base_url` must be `https://` (plain `http://` is accepted only for `localhost`, `127.0.0.1` and `::1`, e.g. a local mock server); the `STAMPMITRA_BASE_URL` environment variable is also honoured. Redirects are never followed.
+
 Constructor options: `base_url`, `timeout` (30 s), `max_retries` (2), `http_client` / `transport` (your own `httpx` client or transport), `default_headers`, `app_info={"name","version","url"}`, `logger`, `debug`, `validate_input` (True), `allow_custom_key`.
 
-Every method takes `options=RequestOptions(timeout=..., max_retries=..., idempotency_key=..., headers={...})`. Async cancellation uses normal `asyncio` task cancellation; for sync calls use `timeout`.
+Every method takes `options=RequestOptions(timeout=..., max_retries=..., idempotency_key=..., headers={...})` (`from stampmitra import RequestOptions`). Async cancellation uses normal `asyncio` task cancellation; for sync calls use `timeout`.
 
 ## Resources
 
@@ -161,12 +180,20 @@ Constant-time comparison; timestamps more than `tolerance_seconds` (default 300)
 
 ## Client-side validation
 
-Inputs are normalised (trimmed, upper-cased) and checked against the same patterns as the backend before sending; failures raise `ValidationError` locally with **no network call and no billing**. Disable with `StampMitra(validate_input=False)`.
+Inputs are normalised (trimmed, upper-cased; bank account numbers trimmed only) and checked against the same patterns as the backend before sending; failures raise `ValidationError` locally with **no network call and no billing**. Disable with `StampMitra(validate_input=False)`.
 
 ## Logging
 
 Off by default. `StampMitra(debug=True)` logs to the `stampmitra` logger (or pass `logger=`). Authorization / `x-api-key` are redacted and PAN, GSTIN, account numbers and names are masked in logged bodies.
 
-## Development
+## Security
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Report vulnerabilities per [SECURITY.md](SECURITY.md). MIT licensed.
+Server-side use only: `sk_` keys are secrets (see above). The SDK requires `https://` base URLs, never disables TLS verification, does not follow redirects, never puts the key in exception messages or `repr()`, and verifies webhooks in constant time. Report vulnerabilities privately per [SECURITY.md](SECURITY.md) (security@stampmitra.in).
+
+## Development and contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) (setup, lint, type-check, tests, conformance suite). Changes are listed in the [CHANGELOG](CHANGELOG.md). Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## License
+
+MIT, see [LICENSE](LICENSE).

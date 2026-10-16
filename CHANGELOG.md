@@ -6,7 +6,14 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 Aligned with the hardened OpenAPI v1 contract (bundled `spec/openapi.json`): any 2xx is success, `services.list()` returns `list[Service]`, typed order/payment/usage models, spec webhook envelope (`coreOrderId`, `coreEventType`, `occurredAt`).
 
+### Security
+- `base_url` must be `https://` (plain `http://` only for localhost).
+
+### Fixed
+- Client-side validators no longer strip spaces/hyphens from vehicle, passport and driving-licence numbers (matches the shared validator vectors and the backend patterns).
+
 ### Added
+- `tests/conformance/`: runs both clients against the spec repo's mock server for all 31 operations, error mapping, retries/idempotency, timeouts, pagination, webhook and validator vectors (`STAMPMITRA_SPEC_DIR`).
 - Sync `StampMitra` and async `AsyncStampMitra` clients covering all 31 operations of the Developer API snapshot.
 - Resources: `verify`, `services`, `estamp`, `orders`, `payments.intents`, `usage`, `logs`, `webhooks.events`.
 - Typed pydantic v2 models (snake_case attributes, camelCase wire aliases, unknown fields preserved, `.response` metadata).
