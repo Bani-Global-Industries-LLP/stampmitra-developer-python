@@ -25,5 +25,5 @@ python -m build                                        # sdist + wheel
 
 - Only `httpx` and `pydantic` as runtime dependencies. No postinstall hooks.
 - Never log or commit API keys; tests use fake `sk_test_` keys and mocked HTTP.
-- Billed verification POSTs must never be retried after a response (see `Core.should_retry_*`).
+- Every POST except webhook replay is auto-keyed (`Op.auto_idempotency`, CSPRNG UUIDv4) and the key is reused across retries; replay stays unkeyed and is never retried after a response (see `Core.should_retry_*`).
 - Add tests and a CHANGELOG entry for behaviour changes. Run all commands above before opening a PR.

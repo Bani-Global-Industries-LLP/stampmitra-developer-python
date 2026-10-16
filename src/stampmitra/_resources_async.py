@@ -47,7 +47,11 @@ class _Resource:
 
 
 class Verify(_Resource):
-    """Identity / business verification. Every call is billed, including negative results."""
+    """Identity / business verification. Every call is billed, including negative results.
+
+    Each call carries an auto-generated ``Idempotency-Key`` (reused across automatic retries), so it is
+    retried on 429/502/503/504 and connection errors without double billing.
+    """
 
     async def pan(self, pan: str, *, name: Optional[str] = None, options: Options = None) -> PanVerification:
         return await self._c._call(ops.PAN, body=ops.pan_body(pan, name, self._c._v), options=options)
@@ -125,6 +129,7 @@ class Estamp(_Resource):
         )
 
     async def calculate_duty(self, body: Mapping[str, Any], *, options: Options = None) -> ApiObject:
+        """Auto-keyed (``Idempotency-Key``) and retried on 429/502/503/504 and connection errors."""
         return await self._c._call(ops.ESTAMP_DUTY, body=dict(body), options=options)
 
     async def add_parties(self, order_id: str, body: Mapping[str, Any], *, options: Options = None) -> ApiObject:
@@ -246,7 +251,7 @@ class WebhookEvents(_Resource):
             cursor = page.next_cursor
 
     async def replay(self, event_id: str, *, options: Options = None) -> ApiObject:
-        """Re-deliver a webhook event. Not auto-retried (no idempotency key)."""
+        """Re-deliver a webhook event. Never auto-keyed; not retried after a response."""
         return await self._c._call(
             ops.WEBHOOK_EVENTS_REPLAY, path_params={"id": ops.path_segment(event_id, "id")}, body={}, options=options
         )

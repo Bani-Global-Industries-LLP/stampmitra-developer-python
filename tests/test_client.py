@@ -30,7 +30,7 @@ def test_pan_success_models_aliases_and_extras(client):
     assert req.headers["authorization"] == f"Bearer {KEY}"
     assert req.headers["accept"] == "application/json" and req.headers["content-type"] == "application/json"
     assert req.headers["user-agent"].startswith("stampmitra-python/0.1.0 (python/")
-    assert "idempotency-key" not in req.headers
+    assert len(req.headers["idempotency-key"]) == 36  # auto-generated UUIDv4
 
 
 @respx.mock

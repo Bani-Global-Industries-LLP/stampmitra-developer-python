@@ -75,7 +75,8 @@ Every method takes `options=RequestOptions(timeout=..., max_retries=..., idempot
 All field names in JSON are camelCase; model attributes are snake_case (`registered_name`). Unknown fields are preserved (`model.model_extra`, `model.to_dict()`). Request bodies for e-Stamp/orders are passed as dicts exactly as the API documents them.
 
 ```python
-# verify (every call is billed, including negative results; HTTP 200 with valid=False)
+# verify (every call is billed, including negative results; HTTP 200 with valid=False;
+# auto-keyed with an Idempotency-Key and safely retried on 429/502/503/504)
 client.verify.pan("ABCDE1234F", name="Rahul Kumar")
 client.verify.gstin("07AAAAA1111A1Z1", business_name="Acme")
 client.verify.rc("MH12AB1234")
@@ -148,9 +149,13 @@ Non-JSON error bodies still map by status. The API error body is `{"error": {"co
 
 ## Retries and idempotency
 
-Default `max_retries=2` with exponential backoff and full jitter (base 0.5 s, cap 8 s); `Retry-After` is honoured (capped at 60 s). Retried: 429, 502, 503, 504, connection errors and timeouts, for **GET** and for **POST requests that carry an `Idempotency-Key`**.
+Default `max_retries=2` with exponential backoff and full jitter (base 0.5 s, cap 8 s); `Retry-After` (seconds or HTTP date, capped at 60 s) is honoured when present, otherwise the jittered backoff is used. Retried: 429, 502, 503, 504, connection errors and timeouts.
 
-`orders.create`, `payments.intents.create` and `estamp.add_parties` auto-generate a UUIDv4 `Idempotency-Key` (reused across retries) unless you pass `options=RequestOptions(idempotency_key=...)`. **Verification calls are metered and have no idempotency key, so they are never retried after a response is received**; they are retried only when the TCP connection could not be established (nothing was sent).
+The backend honours `Idempotency-Key` on **every** metered call, so the SDK auto-generates a CSPRNG UUIDv4 key for **every POST** (all `verify.*` calls, `estamp.calculate_duty`, `estamp.add_parties`, `orders.create`, `payments.intents.create`) unless you pass `options=RequestOptions(idempotency_key=...)`, which always wins. The same key is reused across automatic retries, so a retried verification is replayed by the server instead of being billed twice. Each separate call gets a fresh key; reuse your own key to make several calls one logical operation. GET requests carry no key.
+
+**Exception: `webhooks.events.replay`** is never auto-keyed and is never retried after a response was received (it is retried only if the TCP connection could not be established). Supply an explicit `idempotency_key` if you want it keyed.
+
+> Changed (unreleased, next version): verification POSTs previously carried no key and were never retried after a response; they are now keyed and retried as described above.
 
 ## Pagination
 
