@@ -191,6 +191,20 @@ Inputs are normalised (trimmed, upper-cased; bank account numbers trimmed only) 
 
 Off by default. `StampMitra(debug=True)` logs to the `stampmitra` logger (or pass `logger=`). Authorization / `x-api-key` are redacted and PAN, GSTIN, account numbers and names are masked in logged bodies.
 
+## Pricing
+
+The SDK is free and MIT-licensed. You pay only for API calls, and only for successful production calls; Sandbox is free.
+
+| Plan | Rate |
+|---|---|
+| **Sandbox** (test keys, `sk_test_...`) | Free. Calls run against sandbox data and never debit your wallet. |
+| **Developer Suite** (live keys, `sk_live_...`) | ₹2 per call: PAN, GSTIN, vehicle RC, Voter ID, Driving Licence, Passport, CIN, Udyam, PAN to GSTIN, PAN to Udyam |
+| | ₹4 per call: bank account (penny-drop) |
+| | ₹5 per call: each e-Stamp call |
+| **White-label / CA fulfilment** | Custom, with volume pricing and SLAs. [Contact us](https://developer.stampmitra.in/contact). |
+
+Production calls are deducted from your API credit wallet (top up under Dashboard, Billing). Rates are shown for convenience and may change; the [pricing page](https://developer.stampmitra.in/pricing) is the source of truth.
+
 ## Security
 
 Server-side use only: `sk_` keys are secrets (see above). The SDK requires `https://` base URLs, never disables TLS verification, does not follow redirects, never puts the key in exception messages or `repr()`, and verifies webhooks in constant time. Report vulnerabilities privately per [SECURITY.md](SECURITY.md) (security@stampmitra.in).
