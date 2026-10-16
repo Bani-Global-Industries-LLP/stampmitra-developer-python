@@ -1,12 +1,12 @@
 # stampmitra
 
-[![CI](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/actions/workflows/ci.yml/badge.svg)](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/actions/workflows/ci.yml) [![PyPI](https://img.shields.io/pypi/v/stampmitra)](https://pypi.org/project/stampmitra/) [![Python](https://img.shields.io/pypi/pyversions/stampmitra)](https://pypi.org/project/stampmitra/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE) ![typed](https://img.shields.io/badge/typing-strict-informational)
+[![CI](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/actions/workflows/ci.yml/badge.svg)](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/actions/workflows/ci.yml) [![PyPI](https://img.shields.io/pypi/v/stampmitra)](https://pypi.org/project/stampmitra/) [![Python](https://img.shields.io/pypi/pyversions/stampmitra)](https://pypi.org/project/stampmitra/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/LICENSE) ![typed](https://img.shields.io/badge/typing-strict-informational)
 
-> The PyPI and Python-version badges show "not found" until the first release is published (see [RELEASING.md](RELEASING.md)).
+> The PyPI and Python-version badges show "not found" until the first release is published (see [RELEASING.md](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/RELEASING.md)).
 
 Official Python SDK for the **StampMitra Developer API**: Indian identity and business verification (PAN, GSTIN, vehicle RC, Voter ID, Driving Licence, Passport, CIN, Udyam, bank account) and e-Stamp Paper orders. Sync and async clients, typed (`py.typed`, passes `mypy --strict`), `httpx` + `pydantic` v2 only.
 
-> **Status: pre-1.0 (0.1.0).** Minor releases may contain breaking changes until 1.0; see the [CHANGELOG](CHANGELOG.md). Not yet published to PyPI until the maintainers configure publishing (see [RELEASING.md](RELEASING.md)).
+> **Status: pre-1.0 (0.1.0).** Minor releases may contain breaking changes until 1.0; see the [CHANGELOG](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/CHANGELOG.md). Not yet published to PyPI until the maintainers configure publishing (see [RELEASING.md](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/RELEASING.md)).
 
 Docs: <https://developer.stampmitra.in/docs> | Python SDK page: <https://developer.stampmitra.in/sdks/python> | OpenAPI: <https://developer.stampmitra.in/openapi.json>
 
@@ -181,7 +181,7 @@ event = webhooks.construct_event(raw_body, headers["X-Webhook-Timestamp"], heade
 # signature_mismatch | timestamp_outside_tolerance | invalid_timestamp | missing_secret)
 ```
 
-Constant-time comparison; timestamps more than `tolerance_seconds` (default 300) from now are rejected. Also available as `client.webhooks.verify_signature` / `construct_event`. Examples: [`examples/flask_webhook.py`](examples/flask_webhook.py), [`examples/fastapi_webhook.py`](examples/fastapi_webhook.py).
+Constant-time comparison; timestamps more than `tolerance_seconds` (default 300) from now are rejected. Also available as `client.webhooks.verify_signature` / `construct_event`. Examples: [`examples/flask_webhook.py`](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/examples/flask_webhook.py), [`examples/fastapi_webhook.py`](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/examples/fastapi_webhook.py).
 
 ## Client-side validation
 
@@ -217,12 +217,12 @@ Growth and Scale are also available yearly (₹9,990 and ₹49,990, two months f
 
 ## Security
 
-Server-side use only: `sk_` keys are secrets (see above). The SDK requires `https://` base URLs, never disables TLS verification, does not follow redirects, never puts the key in exception messages or `repr()`, and verifies webhooks in constant time. Report vulnerabilities privately per [SECURITY.md](SECURITY.md) (security@stampmitra.in).
+Server-side use only: `sk_` keys are secrets (see above). The SDK requires `https://` base URLs, never disables TLS verification, does not follow redirects, never puts the key in exception messages or `repr()`, and verifies webhooks in constant time. Report vulnerabilities privately per [SECURITY.md](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/SECURITY.md) (security@stampmitra.in).
 
 ## Development and contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) (setup, lint, type-check, tests, conformance suite). Changes are listed in the [CHANGELOG](CHANGELOG.md). Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+See [CONTRIBUTING.md](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/CONTRIBUTING.md) (setup, lint, type-check, tests, conformance suite). Changes are listed in the [CHANGELOG](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/CHANGELOG.md). Please follow the [Code of Conduct](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/CODE_OF_CONDUCT.md).
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+MIT, see [LICENSE](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/LICENSE).
