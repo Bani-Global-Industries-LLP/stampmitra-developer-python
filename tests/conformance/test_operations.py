@@ -83,9 +83,9 @@ def test_sync_operation(client: Any, mock: Any, name: str, method: str, path: st
     assert (reqs[0]["method"], reqs[0]["path"]) == (method, path)
     assert reqs[0]["headers"]["authorization"].startswith("Bearer sk_test_")
     assert reqs[0]["headers"]["user-agent"].startswith("stampmitra-python/")
-    if method == "POST" and name.startswith(("orders.create", "payments.", "estamp.add")):
+    if method == "POST" and name != "webhooks.events.replay":
         assert reqs[0]["headers"]["idempotency-key"]
-    if name.startswith("verify."):
+    else:
         assert "idempotency-key" not in reqs[0]["headers"]
 
 

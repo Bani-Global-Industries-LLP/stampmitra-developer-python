@@ -48,14 +48,19 @@ class Op(Generic[T]):
     method: str
     path: str  # OpenAPI path template
     model: Type[T]
-    #: POST ops that accept ``Idempotency-Key``; a UUIDv4 is generated when the caller gives none.
+    #: A CSPRNG UUIDv4 ``Idempotency-Key`` is generated when the caller gives none (reused across
+    #: automatic retries). True for every POST except webhook replay, which stays unkeyed.
     auto_idempotency: bool = False
     #: Response body is a JSON array of ``model`` (e.g. ``GET /v1/services``).
     is_list: bool = False
 
 
-def _op(name: str, method: str, path: str, model: Type[T], auto_idempotency: bool = False, is_list: bool = False) -> Op[T]:
-    return Op(name, method, path, model, auto_idempotency, is_list)
+def _op(
+    name: str, method: str, path: str, model: Type[T], auto_idempotency: Optional[bool] = None, is_list: bool = False
+) -> Op[T]:
+    # The backend honours Idempotency-Key on every metered call, so every POST is auto-keyed by default.
+    keyed = method == "POST" if auto_idempotency is None else auto_idempotency
+    return Op(name, method, path, model, keyed, is_list)
 
 
 # verify -------------------------------------------------------------------
@@ -79,10 +84,10 @@ ESTAMP_STATES = _op("estamp.list_states", "GET", "/v1/estamp/states", ApiObject)
 ESTAMP_INSTRUMENTS = _op("estamp.list_instruments", "GET", "/v1/estamp/states/{stateCode}/instruments", ApiObject)
 ESTAMP_ARTICLES = _op("estamp.list_articles", "GET", "/v1/estamp/instruments/{instrumentCode}/articles", ApiObject)
 ESTAMP_DUTY = _op("estamp.calculate_duty", "POST", "/v1/estamp/duty/calculate", ApiObject)
-ESTAMP_PARTIES = _op("estamp.add_parties", "POST", "/v1/estamp/orders/{orderId}/parties", ApiObject, True)
+ESTAMP_PARTIES = _op("estamp.add_parties", "POST", "/v1/estamp/orders/{orderId}/parties", ApiObject)
 
 # orders / payments --------------------------------------------------------
-ORDERS_CREATE = _op("orders.create", "POST", "/v1/orders", OrderReference, True)
+ORDERS_CREATE = _op("orders.create", "POST", "/v1/orders", OrderReference)
 ORDERS_GET = _op("orders.get", "GET", "/v1/orders/{id}", OrderDetail)
 ORDERS_STATUS = _op("orders.get_status", "GET", "/v1/orders/{id}/status", OrderStatus)
 ORDERS_PAYMENT = _op("orders.get_payment", "GET", "/v1/orders/{id}/payment", OrderPayment)
@@ -90,14 +95,14 @@ ORDERS_DOCUMENTS = _op("orders.list_documents", "GET", "/v1/orders/{id}/document
 ORDERS_DOWNLOAD = _op(
     "orders.get_document_download", "GET", "/v1/orders/{id}/documents/{documentId}/download", DocumentDownloadUrl
 )
-INTENTS_CREATE = _op("payments.intents.create", "POST", "/v1/payments/intents", PaymentIntent, True)
+INTENTS_CREATE = _op("payments.intents.create", "POST", "/v1/payments/intents", PaymentIntent)
 INTENTS_GET = _op("payments.intents.get", "GET", "/v1/payments/intents/{id}", PaymentIntent)
 
 # usage / logs / webhooks --------------------------------------------------
 USAGE_SUMMARY = _op("usage.summary", "GET", "/v1/usage/summary", UsageSummary)
 LOGS_LIST = _op("logs.list", "GET", "/v1/logs", LogsPage)
 WEBHOOK_EVENTS_LIST = _op("webhooks.events.list", "GET", "/v1/webhooks/events", WebhookEventsPage)
-WEBHOOK_EVENTS_REPLAY = _op("webhooks.events.replay", "POST", "/v1/webhooks/events/{id}/replay", ApiObject)
+WEBHOOK_EVENTS_REPLAY = _op("webhooks.events.replay", "POST", "/v1/webhooks/events/{id}/replay", ApiObject, False)
 
 OPERATIONS: Tuple[Op[Any], ...] = (
     PAN,

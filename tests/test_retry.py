@@ -59,30 +59,102 @@ def test_no_retry_on_400_401_404_for_get(client, clock):
 
 @respx.mock
 @pytest.mark.parametrize("status", [429, 502, 503, 504])
-def test_billed_post_is_never_retried_after_a_response(client, clock, status):
-    route = respx.post(f"{BASE}/v1/verify/pan").mock(return_value=httpx.Response(status))
-    with pytest.raises(Exception):  # noqa: B017
-        client.verify.pan("ABCDE1234F")
-    assert route.call_count == 1 and clock.sleeps == []
+def test_verification_post_is_retried_with_same_key(client, clock, status):
+    route = respx.post(f"{BASE}/v1/verify/pan").mock(
+        side_effect=[httpx.Response(status), httpx.Response(200, json={"referenceId": "r"})]
+    )
+    assert client.verify.pan("ABCDE1234F").reference_id == "r"
+    keys = [c.request.headers["idempotency-key"] for c in route.calls]
+    assert route.call_count == 2 and len(keys) == 2 and keys[0] == keys[1]
 
 
 @respx.mock
-def test_billed_post_not_retried_on_ambiguous_transport_error(client, clock):
-    route = respx.post(f"{BASE}/v1/verify/pan").mock(side_effect=httpx.ReadTimeout("t"))
+def test_verification_post_503_503_200_three_attempts_same_key(client, clock):
+    route = respx.post(f"{BASE}/v1/verify/pan").mock(
+        side_effect=[httpx.Response(503), httpx.Response(503), httpx.Response(200, json={"referenceId": "r"})]
+    )
+    client.verify.pan("ABCDE1234F")
+    keys = {c.request.headers["idempotency-key"] for c in route.calls}
+    assert route.call_count == 3 and len(keys) == 1
+
+
+@respx.mock
+async def test_async_verification_post_503_503_200_three_attempts_same_key(aclient, clock):
+    route = respx.post(f"{BASE}/v1/verify/pan").mock(
+        side_effect=[httpx.Response(503), httpx.Response(503), httpx.Response(200, json={"referenceId": "r"})]
+    )
+    await aclient.verify.pan("ABCDE1234F")
+    keys = {c.request.headers["idempotency-key"] for c in route.calls}
+    assert route.call_count == 3 and len(keys) == 1
+
+
+@respx.mock
+def test_verification_post_retried_on_ambiguous_transport_error_with_same_key(client, clock):
+    route = respx.post(f"{BASE}/v1/verify/pan").mock(side_effect=[httpx.ReadTimeout("t"), httpx.Response(200, json={})])
+    client.verify.pan("ABCDE1234F")
+    assert route.call_count == 2
+    assert len({c.request.headers["idempotency-key"] for c in route.calls}) == 1
+
+
+@respx.mock
+def test_verification_post_not_retried_on_4xx(client, clock):
+    route = respx.post(f"{BASE}/v1/verify/pan").mock(return_value=httpx.Response(400))
     with pytest.raises(Exception):  # noqa: B017
         client.verify.pan("ABCDE1234F")
     assert route.call_count == 1
 
 
 @respx.mock
-def test_billed_post_retried_only_on_connect_failure(client, clock):
+def test_caller_key_preserved_across_verification_retries(client, clock):
+    route = respx.post(f"{BASE}/v1/verify/gstin").mock(side_effect=[httpx.Response(503), httpx.Response(200, json={})])
+    client.verify.gstin("07AAAAA1111A1Z1", options=RequestOptions(idempotency_key="caller-key"))
+    assert [c.request.headers["idempotency-key"] for c in route.calls] == ["caller-key", "caller-key"]
+
+
+@respx.mock
+def test_duty_calculate_is_auto_keyed_and_retried(client, clock):
+    route = respx.post(f"{BASE}/v1/estamp/duty/calculate").mock(side_effect=[httpx.Response(503), httpx.Response(200, json={})])
+    client.estamp.calculate_duty({"a": 1})
+    assert route.call_count == 2 and len({c.request.headers["idempotency-key"] for c in route.calls}) == 1
+
+
+@respx.mock
+def test_replay_is_never_auto_keyed_or_retried(client, clock):
+    route = respx.post(f"{BASE}/v1/webhooks/events/evt_1/replay").mock(
+        side_effect=[httpx.Response(503), httpx.Response(200, json={})]
+    )
+    with pytest.raises(UpstreamError):
+        client.webhooks.events.replay("evt_1")
+    assert route.call_count == 1 and "idempotency-key" not in route.calls.last.request.headers
+
+
+@respx.mock
+def test_replay_retried_only_on_connect_failure(client, clock):
+    route = respx.post(f"{BASE}/v1/webhooks/events/evt_1/replay").mock(
+        side_effect=[httpx.ReadTimeout("t"), httpx.Response(200, json={})]
+    )
+    with pytest.raises(Exception):  # noqa: B017
+        client.webhooks.events.replay("evt_1")
+    assert route.call_count == 1
+
+
+@respx.mock
+async def test_async_replay_never_auto_keyed_or_retried(aclient, clock):
+    route = respx.post(f"{BASE}/v1/webhooks/events/evt_1/replay").mock(return_value=httpx.Response(503))
+    with pytest.raises(UpstreamError):
+        await aclient.webhooks.events.replay("evt_1")
+    assert route.call_count == 1 and "idempotency-key" not in route.calls.last.request.headers
+
+
+@respx.mock
+def test_verification_connect_failure_retried_with_same_key(client, clock):
     route = respx.post(f"{BASE}/v1/verify/pan").mock(
         side_effect=[httpx.ConnectError("refused"), httpx.Response(200, json={"referenceId": "r"})]
     )
     assert client.verify.pan("ABCDE1234F").reference_id == "r"
     assert route.call_count == 2
     keys = {c.request.headers.get("idempotency-key") for c in route.calls}
-    assert keys == {None}
+    assert len(keys) == 1 and None not in keys
 
 
 @respx.mock
@@ -141,11 +213,3 @@ async def test_async_retry_and_idempotency(aclient, clock):
     res = await aclient.orders.create(ORDER)
     assert res.id == "a" and clock.sleeps == [0.5]
     assert len({c.request.headers["idempotency-key"] for c in route.calls}) == 1
-
-
-@respx.mock
-async def test_async_billed_post_not_retried(aclient, clock):
-    route = respx.post(f"{BASE}/v1/verify/pan").mock(return_value=httpx.Response(503))
-    with pytest.raises(UpstreamError):
-        await aclient.verify.pan("ABCDE1234F")
-    assert route.call_count == 1

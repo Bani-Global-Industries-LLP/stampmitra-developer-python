@@ -76,7 +76,8 @@ class PreparedRequest:
     content: Optional[bytes]
     timeout: float
     max_retries: int
-    #: Safe to re-send automatically after a response: GET, or POST carrying an Idempotency-Key.
+    #: Safe to re-send automatically after a response: GET, or POST carrying an Idempotency-Key
+    #: (every POST except webhook replay is auto-keyed; replay is keyed only if the caller supplies one).
     retry_safe: bool
     body: Optional[Dict[str, Any]] = field(default=None, repr=False)
 
@@ -168,7 +169,7 @@ class Core:
         headers["Authorization"] = f"Bearer {self._api_key}"
         idem = options.idempotency_key
         if idem is None and op.auto_idempotency and not _has_header(headers, "Idempotency-Key"):
-            idem = str(uuid.uuid4())  # generated once; reused across automatic retries
+            idem = _new_idempotency_key()  # generated once; reused across automatic retries
         if idem is not None and op.method != "GET":
             headers["Idempotency-Key"] = idem
         content = json.dumps(body, separators=(",", ":")).encode("utf-8") if body is not None else None
@@ -200,7 +201,7 @@ class Core:
             return False
         if prep.retry_safe:
             return isinstance(exc, (httpx.TransportError,))
-        # Billed, non-idempotent POST: only when the failure provably happened before the
+        # Un-keyed POST (webhook replay without a caller key): only when the failure provably happened before the
         # request was sent (TCP connect failed / connect timed out).
         return isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout))
 
@@ -367,6 +368,14 @@ def _validate_base_url(url: str) -> str:
     if parts.scheme == "http" and host in ("localhost", "127.0.0.1", "::1"):
         return url
     raise ConfigurationError("base_url must be an https:// URL (http:// is only allowed for localhost).")
+
+
+def _new_idempotency_key() -> str:
+    """CSPRNG UUIDv4 (``uuid.uuid4`` reads ``os.urandom``); fail loudly rather than fall back to a weak RNG."""
+    try:
+        return str(uuid.UUID(bytes=os.urandom(16), version=4))
+    except NotImplementedError as exc:  # pragma: no cover - os.urandom unavailable
+        raise ConfigurationError("No cryptographically secure random source available to generate an Idempotency-Key.") from exc
 
 
 def _has_header(headers: Mapping[str, str], name: str) -> bool:
