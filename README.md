@@ -2,11 +2,9 @@
 
 [![CI](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/actions/workflows/ci.yml/badge.svg)](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/actions/workflows/ci.yml) [![PyPI](https://img.shields.io/pypi/v/stampmitra)](https://pypi.org/project/stampmitra/) [![Python](https://img.shields.io/pypi/pyversions/stampmitra)](https://pypi.org/project/stampmitra/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/LICENSE) ![typed](https://img.shields.io/badge/typing-strict-informational)
 
-> The PyPI and Python-version badges show "not found" until the first release is published (see [RELEASING.md](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/RELEASING.md)).
-
 Official Python SDK for the **StampMitra Developer API**: Indian identity and business verification (PAN, GSTIN, vehicle RC, Voter ID, Driving Licence, Passport, CIN, Udyam, bank account) and e-Stamp Paper orders. Sync and async clients, typed (`py.typed`, passes `mypy --strict`), `httpx` + `pydantic` v2 only.
 
-> **Status: pre-1.0 (0.1.0).** Minor releases may contain breaking changes until 1.0; see the [CHANGELOG](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/CHANGELOG.md). Not yet published to PyPI until the maintainers configure publishing (see [RELEASING.md](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/RELEASING.md)).
+> **Status: pre-1.0 (0.1.0).** Minor releases may contain breaking changes until 1.0; see the [CHANGELOG](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/CHANGELOG.md).
 
 Docs: <https://developer.stampmitra.in/docs> | Python SDK page: <https://developer.stampmitra.in/sdks/python> | OpenAPI: <https://developer.stampmitra.in/openapi.json>
 
