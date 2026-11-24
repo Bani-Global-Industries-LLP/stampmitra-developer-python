@@ -7,7 +7,8 @@ import contextlib
 import json
 import re
 import socket
-from typing import Any, Dict, List
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import httpx
 import pytest
@@ -29,6 +30,8 @@ from stampmitra import (
     ValidationError,
 )
 from stampmitra import _ops as ops
+from stampmitra._core import Multipart
+from stampmitra._ops import FilePart
 from tests.conformance.conftest import KEY
 
 ERRORS = [
@@ -109,7 +112,7 @@ def test_429_without_retry_after(mock: Any, sleeps: Any) -> None:
 def test_get_retry_sequence_503_503_200(client: Any, mock: Any, sleeps: Any) -> None:
     client.services.list(options=RequestOptions(headers={"x-mock-scenario": "seq:a:503,503,200"}))
     assert len(mock.requests()) == 3
-    assert sleeps.values == [0.5, 1.0]
+    assert sleeps.values == [1.0, 1.0]  # contract 1.2.0: the documented 503 carries Retry-After: 1, which wins over backoff
 
 
 def test_get_retries_exhausted(client: Any, mock: Any) -> None:
@@ -370,20 +373,35 @@ def test_path_params_encoded(mock: Any) -> None:
     assert seen == ["/v1/orders/a%2Fb%3Fc%3Dd%23e"]
 
 
-def _fixture_scenarios(spec_dir: Any) -> List[Dict[str, Any]]:
-    out: List[Dict[str, Any]] = json.loads((spec_dir / "fixtures" / "retry-scenarios.json").read_text())["scenarios"]
-    return [s for s in out if not s.get("optional")]
+def _fixture_scenarios() -> List[Dict[str, Any]]:
+    path = Path(__file__).resolve().parents[1] / "fixtures" / "retry-scenarios.json"
+    out: List[Dict[str, Any]] = json.loads(path.read_text("utf8"))["scenarios"]
+    return out
 
 
-def _expected_attempts(scn: Dict[str, Any], retry_safe: bool) -> int:
-    """Attempts under the keyed-retry rule (the shared fixture encodes the older keyless-verify rule)."""
+def _status_of(item: Any) -> Any:
+    return item["status"] if isinstance(item, dict) else item
+
+
+def _expected_attempts(scn: Dict[str, Any], op: Any, keyed: bool) -> int:
+    """Attempts under the SDK's rules: GET / keyed POST / x-retry-safe dry run retry on 429, 502, 503, 504, connection errors
+    and timeouts (and on 409 IDEMPOTENCY_IN_PROGRESS for a keyed POST); never_retry operations and un-keyed POSTs
+    (webhook replay: only a failed connect) do not."""
+    retry_safe = not op.never_retry and (op.method == "GET" or keyed or op.retry_without_key)
     max_retries = scn.get("maxRetries", 2)
     attempts = 0
     for item in scn["sequence"]:
         attempts += 1
-        status = item["status"] if isinstance(item, dict) else item
-        # un-keyed POST (webhook replay): only a failed connect is retried
-        retryable = status in (429, 502, 503, 504, "connection_error", "timeout") if retry_safe else status == "connection_error"
+        status = _status_of(item)
+        if op.never_retry:
+            retryable = False
+        elif not retry_safe:
+            retryable = status == "connection_error"
+        elif status == 409:
+            code = (item.get("body") or {}).get("error", {}).get("code") if isinstance(item, dict) else None
+            retryable = keyed and code == "IDEMPOTENCY_IN_PROGRESS"
+        else:
+            retryable = status in (429, 502, 503, 504, "connection_error", "timeout")
         if not retryable or attempts > max_retries:
             break
     return attempts
@@ -404,9 +422,11 @@ def _path_params(template: str, path: str) -> Dict[str, str]:
     return dict(zip(names, m.groups())) if m else {}
 
 
-def test_retry_scenarios_fixture_under_keyed_rule(spec_dir: Any) -> None:
-    """Drive every shared retry scenario; keyless verify/duty POSTs now follow the keyed-retry rule."""
-    for scn in _fixture_scenarios(spec_dir):
+def test_retry_scenarios_fixture() -> None:
+    """Drive every shared retry scenario (all 54, optional ones included) through the core."""
+    scenarios = _fixture_scenarios()
+    assert len(scenarios) == 54
+    for scn in scenarios:
         seq = list(scn["sequence"])
         calls: List[httpx.Request] = []
 
@@ -423,16 +443,22 @@ def test_retry_scenarios_fixture_under_keyed_rule(spec_dir: Any) -> None:
 
         op = _find_op(scn["method"], scn["path"])
         c = StampMitra(KEY, transport=httpx.MockTransport(handler), max_retries=scn.get("maxRetries", 2))
-        c._core.sleep = lambda _s: None
+        sleeps: List[float] = []
+        c._core.sleep = sleeps.append
         c._core.random = lambda: 0.0
         caller_key = scn["idempotencyKey"] is True
         opts = RequestOptions(idempotency_key="k-1") if caller_key else None
+        mp = Multipart([], [FilePart("file", "pan.pdf", "application/pdf", b"%PDF-1.4")]) if op.multipart else None
+        body: Optional[Dict[str, Any]] = {} if op.method == "POST" and not op.multipart else None
         with contextlib.suppress(StampMitraError):
-            c._send(op, path_params=_path_params(op.path, scn["path"]), body={} if op.method == "POST" else None, options=opts)
-        keyed = op.method == "POST" and (op.auto_idempotency or caller_key)
-        assert len(calls) == _expected_attempts(scn, op.method == "GET" or keyed), scn["name"]
+            c._send(op, path_params=_path_params(op.path, scn["path"]), body=body, multipart=mp, options=opts)
+        keyed = op.method == "POST" and (op.auto_idempotency or caller_key) and not op.never_retry
+        # never_retry operations never carry an auto key; a caller key is sent but still never retried
+        assert len(calls) == _expected_attempts(scn, op, op.method == "POST" and (op.auto_idempotency or caller_key)), scn["name"]
         if keyed:
             assert len({r.headers["idempotency-key"] for r in calls}) == 1, scn["name"]
-        if op.method == "POST" and not keyed:
+        if op.method == "POST" and not op.auto_idempotency and not caller_key:
             assert all("idempotency-key" not in r.headers for r in calls), scn["name"]
+        if scn.get("expectedDelayBeforeAttempt2Seconds") is not None and len(calls) > 1:
+            assert sleeps[0] == scn["expectedDelayBeforeAttempt2Seconds"], scn["name"]
         c.close()
