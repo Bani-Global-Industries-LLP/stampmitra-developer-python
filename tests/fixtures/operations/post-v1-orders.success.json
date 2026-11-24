@@ -1,0 +1,41 @@
+{
+  "name": "POST /v1/orders - success",
+  "operation": {
+    "method": "POST",
+    "path": "/v1/orders"
+  },
+  "scenario": "success",
+  "source": "spec-example",
+  "description": "Created",
+  "request": {
+    "method": "POST",
+    "path": "/v1/orders",
+    "headers": {
+      "Authorization": "Bearer sk_test_EXAMPLEKEY00000000",
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Idempotency-Key": "7b1d2c58-4f1a-4c1e-9a53-0d6f7e2b9c11"
+    },
+    "body": {
+      "externalOrderId": "ord_ext_123",
+      "externalCustomerId": "cust_ext_456",
+      "serviceCode": "estamp.instrument.rent_agreement",
+      "details": {
+        "state": "MH",
+        "stampValue": 500,
+        "note": "Shape not finalized - illustrative only"
+      }
+    }
+  },
+  "response": {
+    "status": 201,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "externalOrderId": "ord_ext_123",
+      "createdAt": "2026-10-15T09:41:07.000Z",
+      "serviceCode": "estamp.instrument.rent_agreement"
+    }
+  }
+}

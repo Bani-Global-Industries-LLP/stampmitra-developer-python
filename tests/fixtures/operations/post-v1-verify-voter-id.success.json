@@ -1,0 +1,75 @@
+{
+  "name": "POST /v1/verify/voter-id - success",
+  "operation": {
+    "method": "POST",
+    "path": "/v1/verify/voter-id"
+  },
+  "scenario": "success",
+  "source": "spec-example",
+  "description": "Success",
+  "request": {
+    "method": "POST",
+    "path": "/v1/verify/voter-id",
+    "headers": {
+      "Authorization": "Bearer sk_test_EXAMPLEKEY00000000",
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Idempotency-Key": "7b1d2c58-4f1a-4c1e-9a53-0d6f7e2b9c11"
+    },
+    "body": {
+      "voterId": "UAI4574761",
+      "name": "HARSHIT PRAJAPATI"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "referenceId": "SMV-20260927-7H83M1",
+      "verificationId": "VRF-4C8P2WJ6ZK9T",
+      "valid": true,
+      "status": "VALID",
+      "epicNumber": "UAI4574761",
+      "name": "HARSHIT PRAJAPATI",
+      "nameInRegionalLang": "हर्षित",
+      "age": "23",
+      "relationType": "FTHR",
+      "relationName": "RAJ PRAJAPATI",
+      "relationNameInRegionalLang": "राज",
+      "fatherName": "RAJ PRAJAPATI",
+      "dob": "2000-12-07",
+      "gender": "Male",
+      "address": "GOVT JUNIOR COLLEGE SIRWAR",
+      "photoUrl": "https://example.com/voter-photos/UAI4574761.jpeg",
+      "splitAddress": {
+        "district": [
+          "INDORE"
+        ],
+        "state": [
+          "Madhya Pradesh"
+        ],
+        "city": [
+          "SANER"
+        ],
+        "pincode": "560034",
+        "country": [
+          "IN",
+          "IND",
+          "INDIA"
+        ],
+        "addressLine": "GOVT JUNIOR COLLEGE SIRWAR"
+      },
+      "state": "Madhya Pradesh",
+      "assemblyConstituencyNumber": "211",
+      "assemblyConstituency": "SANER",
+      "parliamentaryConstituencyNumber": "25",
+      "parliamentaryConstituency": "INDORE",
+      "partNumber": "27",
+      "partName": "SIRWAR",
+      "serialNumber": "713",
+      "pollingStation": "GOVT JUNIOR COLLEGE SIRWAR"
+    }
+  }
+}

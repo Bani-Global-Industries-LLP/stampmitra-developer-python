@@ -1,0 +1,34 @@
+{
+  "name": "GET /v1/payments/intents/{id} - success",
+  "operation": {
+    "method": "GET",
+    "path": "/v1/payments/intents/{id}"
+  },
+  "scenario": "success",
+  "source": "spec-example",
+  "description": "Success",
+  "request": {
+    "method": "GET",
+    "path": "/v1/payments/intents/pi_01HZX3N5B8",
+    "headers": {
+      "Authorization": "Bearer sk_test_EXAMPLEKEY00000000",
+      "Accept": "application/json"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+      "externalOrderId": "ord_ext_123",
+      "coreOrderId": null,
+      "amountMinor": 50000,
+      "currency": "INR",
+      "status": "CREATED",
+      "providerIntentId": "order_Nf3k2m9QxPz1Ab",
+      "createdAt": "2026-10-15T09:41:07.000Z"
+    }
+  }
+}

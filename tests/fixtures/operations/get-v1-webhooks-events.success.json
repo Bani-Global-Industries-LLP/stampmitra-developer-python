@@ -1,0 +1,37 @@
+{
+  "name": "GET /v1/webhooks/events - success",
+  "operation": {
+    "method": "GET",
+    "path": "/v1/webhooks/events"
+  },
+  "scenario": "success",
+  "source": "illustrative",
+  "description": "Success",
+  "request": {
+    "method": "GET",
+    "path": "/v1/webhooks/events",
+    "query": {
+      "limit": "20"
+    },
+    "headers": {
+      "Authorization": "Bearer sk_test_EXAMPLEKEY00000000",
+      "Accept": "application/json"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "items": [
+        {
+          "id": "evt_01HZX3P0C4",
+          "status": "SUCCEEDED",
+          "attempts": 1
+        }
+      ],
+      "nextCursor": null
+    }
+  }
+}

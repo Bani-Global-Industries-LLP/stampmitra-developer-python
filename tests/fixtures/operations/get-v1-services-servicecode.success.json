@@ -1,0 +1,40 @@
+{
+  "name": "GET /v1/services/{serviceCode} - success",
+  "operation": {
+    "method": "GET",
+    "path": "/v1/services/{serviceCode}"
+  },
+  "scenario": "success",
+  "source": "spec-example",
+  "description": "Success",
+  "request": {
+    "method": "GET",
+    "path": "/v1/services/estamp.instrument.rent_agreement",
+    "headers": {
+      "Authorization": "Bearer sk_test_EXAMPLEKEY00000000",
+      "Accept": "application/json"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "serviceCode": "estamp.instrument.rent_agreement",
+      "name": "Rent Agreement e-Stamp",
+      "category": "estamp",
+      "basePrice": "500.00",
+      "currency": "INR",
+      "isActive": true,
+      "gstRatePercent": "18.00",
+      "defaultGovernmentFee": null,
+      "processingTimeHours": 24,
+      "guestCheckoutEnabled": false,
+      "requiresDocuments": true,
+      "uiSchema": null,
+      "entitled": true,
+      "entitlementUpdatedAt": "2026-09-01T10:00:00.000Z"
+    }
+  }
+}

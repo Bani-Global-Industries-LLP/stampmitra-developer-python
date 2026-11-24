@@ -1,0 +1,36 @@
+{
+  "name": "GET /v1/estamp/states - success",
+  "operation": {
+    "method": "GET",
+    "path": "/v1/estamp/states"
+  },
+  "scenario": "success",
+  "source": "illustrative",
+  "description": "Success",
+  "request": {
+    "method": "GET",
+    "path": "/v1/estamp/states",
+    "headers": {
+      "Authorization": "Bearer sk_test_EXAMPLEKEY00000000",
+      "Accept": "application/json"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "states": [
+        {
+          "code": "MH",
+          "name": "Maharashtra"
+        },
+        {
+          "code": "DL",
+          "name": "Delhi"
+        }
+      ]
+    }
+  }
+}

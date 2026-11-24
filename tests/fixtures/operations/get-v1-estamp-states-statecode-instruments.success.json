@@ -1,0 +1,32 @@
+{
+  "name": "GET /v1/estamp/states/{stateCode}/instruments - success",
+  "operation": {
+    "method": "GET",
+    "path": "/v1/estamp/states/{stateCode}/instruments"
+  },
+  "scenario": "success",
+  "source": "illustrative",
+  "description": "Success",
+  "request": {
+    "method": "GET",
+    "path": "/v1/estamp/states/MH/instruments",
+    "headers": {
+      "Authorization": "Bearer sk_test_EXAMPLEKEY00000000",
+      "Accept": "application/json"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "instruments": [
+        {
+          "code": "rent_agreement",
+          "name": "Rent Agreement"
+        }
+      ]
+    }
+  }
+}
