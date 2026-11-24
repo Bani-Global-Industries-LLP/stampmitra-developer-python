@@ -1,0 +1,28 @@
+{
+  "name": "POST /v1/webhooks/events/{id}/replay - success",
+  "operation": {
+    "method": "POST",
+    "path": "/v1/webhooks/events/{id}/replay"
+  },
+  "scenario": "success",
+  "source": "illustrative",
+  "description": "Success",
+  "request": {
+    "method": "POST",
+    "path": "/v1/webhooks/events/evt_01HZX3P0C4/replay",
+    "headers": {
+      "Authorization": "Bearer sk_test_EXAMPLEKEY00000000",
+      "Accept": "application/json"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "id": "evt_01HZX3P0C4",
+      "status": "QUEUED"
+    }
+  }
+}

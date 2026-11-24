@@ -1,0 +1,38 @@
+{
+  "name": "GET /v1/estamp/schema/{serviceCode} - success",
+  "operation": {
+    "method": "GET",
+    "path": "/v1/estamp/schema/{serviceCode}"
+  },
+  "scenario": "success",
+  "source": "illustrative",
+  "description": "Success",
+  "request": {
+    "method": "GET",
+    "path": "/v1/estamp/schema/estamp.instrument.rent_agreement",
+    "headers": {
+      "Authorization": "Bearer sk_test_EXAMPLEKEY00000000",
+      "Accept": "application/json"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "fields": [
+        {
+          "name": "state",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "stampValue",
+          "type": "number",
+          "required": true
+        }
+      ]
+    }
+  }
+}

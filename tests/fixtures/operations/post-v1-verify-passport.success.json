@@ -1,0 +1,42 @@
+{
+  "name": "POST /v1/verify/passport - success",
+  "operation": {
+    "method": "POST",
+    "path": "/v1/verify/passport"
+  },
+  "scenario": "success",
+  "source": "spec-example",
+  "description": "Success",
+  "request": {
+    "method": "POST",
+    "path": "/v1/verify/passport",
+    "headers": {
+      "Authorization": "Bearer sk_test_EXAMPLEKEY00000000",
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Idempotency-Key": "7b1d2c58-4f1a-4c1e-9a53-0d6f7e2b9c11"
+    },
+    "body": {
+      "fileNumber": "PA1079341954215",
+      "dob": "1998-12-31",
+      "name": "John doe"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "referenceId": "SMV-20260927-4W19X6",
+      "verificationId": "VRF-6N2R8D4YTH3K",
+      "valid": true,
+      "status": "VALID",
+      "fileNumber": "PA1079341954215",
+      "name": "John doe",
+      "dob": "1998-12-31",
+      "applicationType": "NORMAL",
+      "applicationReceivedDate": "2003-12-31"
+    }
+  }
+}

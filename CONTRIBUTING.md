@@ -19,11 +19,11 @@ python -m build                                        # sdist + wheel
 
 ## Keeping in sync with the API
 
-`spec/openapi.json` is a snapshot of the OpenAPI document. To update it, replace the file, then run `python scripts/check_spec_coverage.py`; it fails for any new operation lacking an SDK method. Add the operation to `src/stampmitra/_ops.py`, then add methods to **both** `_resources_sync.py` and `_resources_async.py` (the async file mirrors the sync one), plus a row in `tests/test_spec_coverage.py`.
+`spec/openapi.json` is a snapshot of the OpenAPI document, and `tests/fixtures/` holds the golden fixtures (`operations/`, `retry-scenarios.json`, `webhook-signatures.json`) vendored from the spec repo. To update them, copy `openapi.json` to `spec/openapi.json` and `fixtures/operations`, `fixtures/retry-scenarios.json` and `fixtures/webhook-signatures.json` to `tests/fixtures/` (the conformance suite fails if the copies drift from `STAMPMITRA_SPEC_DIR`), then run `python scripts/check_spec_coverage.py`; it fails for any new operation lacking an SDK method. Add the operation to `src/stampmitra/_ops.py` (set `never_retry=True` for operations marked `x-retry-safe: false`), then add methods to **both** `_resources_sync.py` and `_resources_async.py` (the async file mirrors the sync one), plus a row in `tests/test_spec_coverage.py`, `tests/conformance/test_operations.py` and the table in `tests/test_estamp_fixtures.py`.
 
 ## Guidelines
 
 - Only `httpx` and `pydantic` as runtime dependencies. No postinstall hooks.
 - Never log or commit API keys; tests use fake `sk_test_` keys and mocked HTTP.
-- Every POST except webhook replay is auto-keyed (`Op.auto_idempotency`, CSPRNG UUIDv4) and the key is reused across retries; replay stays unkeyed and is never retried after a response (see `Core.should_retry_*`).
+- Every POST except webhook replay, `estamp.orders.validate` and the `never_retry` operations is auto-keyed (`Op.auto_idempotency`, CSPRNG UUIDv4) and the key is reused across retries; replay stays unkeyed and is never retried after a response (see `Core.should_retry_*`).
 - Add tests and a CHANGELOG entry for behaviour changes. Run all commands above before opening a PR.

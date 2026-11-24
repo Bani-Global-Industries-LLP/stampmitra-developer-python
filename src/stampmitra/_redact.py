@@ -45,6 +45,14 @@ _SENSITIVE_KEYS = {
     "principalplaceofbusiness",
     "certificateurl",
     "secret",
+    "pancardimage",
+    "fatherhusbandname",
+    "payerphone",
+    "firstparty",
+    "secondparty",
+    "downloadurl",
+    "csv",
+    "legalbusinessname",
 }
 
 _PAN_IN_TEXT = re.compile(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b")

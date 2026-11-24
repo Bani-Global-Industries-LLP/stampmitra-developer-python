@@ -1,4 +1,4 @@
-"""All 31 operations, sync and async, against the mock server; asserts METHOD, path, auth header, body, and parse."""
+"""All 62 operations, sync and async, against the mock server; asserts METHOD, path, auth header, body, and parse."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import pytest
 Call = Callable[[Any], Any]
 
 PAN = "ABCDE1234F"
+EORDER = {"stamps": [{"state": "MH", "articleCode": "ART1", "denomination": 1000, "firstParty": "Jane Doe"}]}
 OPS: List[Tuple[str, str, str, Call]] = [
     ("verify.pan", "POST", "/v1/verify/pan", lambda c: c.verify.pan(PAN, name="Rahul Kumar")),
     ("verify.gstin", "POST", "/v1/verify/gstin", lambda c: c.verify.gstin("07AAAAA1111A1Z1", business_name="Acme")),
@@ -66,12 +67,100 @@ OPS: List[Tuple[str, str, str, Call]] = [
     ("logs.list", "GET", "/v1/logs", lambda c: c.logs.list(limit=5)),
     ("webhooks.events.list", "GET", "/v1/webhooks/events", lambda c: c.webhooks.events.list(limit=5)),
     ("webhooks.events.replay", "POST", "/v1/webhooks/events/evt_1/replay", lambda c: c.webhooks.events.replay("evt_1")),
+    ("estamp.get_states_availability", "GET", "/v1/estamp/states/availability", lambda c: c.estamp.get_states_availability()),
+    ("estamp.get_state", "GET", "/v1/estamp/states/MH", lambda c: c.estamp.get_state("MH")),
+    (
+        "estamp.get_state_requirements",
+        "GET",
+        "/v1/estamp/states/MH/requirements",
+        lambda c: c.estamp.get_state_requirements("MH", article_code="ART1", denomination=1000, category="e_stamp"),
+    ),
+    ("estamp.list_districts", "GET", "/v1/estamp/states/MH/districts", lambda c: c.estamp.list_districts("MH")),
+    ("estamp.list_sros", "GET", "/v1/estamp/states/MH/districts/PUNE/sros", lambda c: c.estamp.list_sros("MH", "PUNE")),
+    ("estamp.get_wallet", "GET", "/v1/estamp/wallet", lambda c: c.estamp.get_wallet()),
+    ("estamp.orders.validate", "POST", "/v1/estamp/orders/validate", lambda c: c.estamp.orders.validate(EORDER)),
+    ("estamp.orders.create", "POST", "/v1/estamp/orders", lambda c: c.estamp.orders.create(EORDER)),
+    ("estamp.orders.list", "GET", "/v1/estamp/orders", lambda c: c.estamp.orders.list(limit=5)),
+    ("estamp.orders.get", "GET", "/v1/estamp/orders/eo_1", lambda c: c.estamp.orders.get("eo_1")),
+    ("estamp.orders.cancel", "POST", "/v1/estamp/orders/eo_1/cancel", lambda c: c.estamp.orders.cancel("eo_1")),
+    ("estamp.orders.export", "GET", "/v1/estamp/orders/eo_1/export", lambda c: c.estamp.orders.export("eo_1")),
+    ("estamp.orders.list_stamps", "GET", "/v1/estamp/orders/eo_1/stamps", lambda c: c.estamp.orders.list_stamps("eo_1")),
+    (
+        "estamp.orders.upload_document",
+        "POST",
+        "/v1/estamp/orders/eo_1/documents",
+        lambda c: c.estamp.orders.upload_document("eo_1", b"%PDF-1.4 x", filename="pan.pdf"),
+    ),
+    ("estamp.stamps.get", "GET", "/v1/estamp/stamps/es_1", lambda c: c.estamp.stamps.get("es_1")),
+    ("estamp.stamps.cancel", "POST", "/v1/estamp/stamps/es_1/cancel", lambda c: c.estamp.stamps.cancel("es_1")),
+    ("estamp.stamps.replace", "POST", "/v1/estamp/stamps/es_1/replace", lambda c: c.estamp.stamps.replace("es_1")),
+    (
+        "estamp.stamps.set_pan_card",
+        "POST",
+        "/v1/estamp/stamps/es_1/pan-card",
+        lambda c: c.estamp.stamps.set_pan_card("es_1", "https://cdn.example.com/p.jpg"),
+    ),
+    (
+        "estamp.stamps.get_certificate",
+        "GET",
+        "/v1/estamp/stamps/es_1/certificate",
+        lambda c: c.estamp.stamps.get_certificate("es_1"),
+    ),
+    ("stamp_duty_wallet.get_balance", "GET", "/v1/stamp-duty-wallet", lambda c: c.stamp_duty_wallet.get_balance()),
+    ("stamp_duty_wallet.topup", "POST", "/v1/stamp-duty-wallet/topup", lambda c: c.stamp_duty_wallet.topup(1000)),
+    (
+        "stamp_duty_wallet.list_transactions",
+        "GET",
+        "/v1/stamp-duty-wallet/transactions",
+        lambda c: c.stamp_duty_wallet.list_transactions(limit=5),
+    ),
+    ("stamp_duty_wallet.list_invoices", "GET", "/v1/stamp-duty-wallet/invoices", lambda c: c.stamp_duty_wallet.list_invoices()),
+    (
+        "stamp_duty_wallet.get_invoice",
+        "GET",
+        "/v1/stamp-duty-wallet/invoices/inv_1",
+        lambda c: c.stamp_duty_wallet.get_invoice("inv_1"),
+    ),
+    ("service_fee_wallet.get_balance", "GET", "/v1/service-fee-wallet", lambda c: c.service_fee_wallet.get_balance()),
+    ("service_fee_wallet.topup", "POST", "/v1/service-fee-wallet/topup", lambda c: c.service_fee_wallet.topup(500)),
+    (
+        "service_fee_wallet.list_transactions",
+        "GET",
+        "/v1/service-fee-wallet/transactions",
+        lambda c: c.service_fee_wallet.list_transactions(),
+    ),
+    (
+        "service_fee_wallet.list_invoices",
+        "GET",
+        "/v1/service-fee-wallet/invoices",
+        lambda c: c.service_fee_wallet.list_invoices(),
+    ),
+    (
+        "service_fee_wallet.get_invoice",
+        "GET",
+        "/v1/service-fee-wallet/invoices/inv_1",
+        lambda c: c.service_fee_wallet.get_invoice("inv_1"),
+    ),
+    ("account.balance", "GET", "/v1/account/balance", lambda c: c.account.balance()),
+    ("account.usage", "GET", "/v1/account/usage", lambda c: c.account.usage()),
 ]
 
+#: POSTs that carry an auto-generated Idempotency-Key (the rest of the POSTs never do).
+KEYED = {n for n, m, _, _ in OPS if m == "POST"} - {
+    "webhooks.events.replay",
+    "estamp.orders.validate",
+    "estamp.orders.cancel",
+    "estamp.stamps.cancel",
+    "estamp.stamps.replace",
+    "estamp.stamps.set_pan_card",
+    "stamp_duty_wallet.topup",
+    "service_fee_wallet.topup",
+}
 
-def test_table_covers_31_operations() -> None:
-    assert len(OPS) == 31
-    assert len({(m, p) for _, m, p, _ in OPS}) == 31
+
+def test_table_covers_62_operations() -> None:
+    assert len(OPS) == 62
+    assert len({(m, p) for _, m, p, _ in OPS}) == 62
 
 
 @pytest.mark.parametrize(("name", "method", "path", "call"), OPS, ids=[o[0] for o in OPS])
@@ -83,7 +172,7 @@ def test_sync_operation(client: Any, mock: Any, name: str, method: str, path: st
     assert (reqs[0]["method"], reqs[0]["path"]) == (method, path)
     assert reqs[0]["headers"]["authorization"].startswith("Bearer sk_test_")
     assert reqs[0]["headers"]["user-agent"].startswith("stampmitra-python/")
-    if method == "POST" and name != "webhooks.events.replay":
+    if name in KEYED:
         assert reqs[0]["headers"]["idempotency-key"]
     else:
         assert "idempotency-key" not in reqs[0]["headers"]

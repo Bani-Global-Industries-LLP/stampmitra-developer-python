@@ -29,7 +29,7 @@ def test_pan_success_models_aliases_and_extras(client):
     assert json.loads(req.content) == {"pan": "ABCDE1234F", "name": "Rahul Kumar"}  # normalised
     assert req.headers["authorization"] == f"Bearer {KEY}"
     assert req.headers["accept"] == "application/json" and req.headers["content-type"] == "application/json"
-    assert req.headers["user-agent"].startswith("stampmitra-python/0.1.0 (python/")
+    assert req.headers["user-agent"].startswith("stampmitra-python/0.2.0 (python/")
     assert len(req.headers["idempotency-key"]) == 36  # auto-generated UUIDv4
 
 

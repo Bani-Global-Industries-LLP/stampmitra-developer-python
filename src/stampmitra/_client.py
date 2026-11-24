@@ -11,7 +11,7 @@ import httpx
 
 from . import _resources_async as ra
 from . import _resources_sync as rs
-from ._core import DEFAULT_MAX_RETRIES, DEFAULT_TIMEOUT, Core, PreparedRequest, RequestOptions
+from ._core import DEFAULT_MAX_RETRIES, DEFAULT_TIMEOUT, Core, Multipart, PreparedRequest, RequestOptions
 from ._ops import Op
 from .errors import StampMitraError
 from .models import StampMitraModel
@@ -78,6 +78,9 @@ class StampMitra:
         self.usage = rs.Usage(self)
         self.logs = rs.Logs(self)
         self.webhooks = rs.Webhooks(self)
+        self.stamp_duty_wallet = rs.StampDutyWallet(self)
+        self.service_fee_wallet = rs.ServiceFeeWallet(self)
+        self.account = rs.Account(self)
 
     # -- public attributes ------------------------------------------------
     @property
@@ -117,10 +120,13 @@ class StampMitra:
         path_params: Optional[Mapping[str, str]] = None,
         query: Optional[Mapping[str, Any]] = None,
         body: Optional[Dict[str, Any]] = None,
+        multipart: Optional[Multipart] = None,
         options: Optional[RequestOptions] = None,
     ) -> httpx.Response:
         core = self._core
-        prep: PreparedRequest = core.prepare(op, path_params=path_params, query=query, body=body, options=options)
+        prep: PreparedRequest = core.prepare(
+            op, path_params=path_params, query=query, body=body, multipart=multipart, options=options
+        )
         attempt = 0
         while True:
             core.log_request(prep, attempt)
@@ -140,7 +146,7 @@ class StampMitra:
             core.log_response(prep, response, time.monotonic() - started)
             if not 200 <= response.status_code < 300:
                 err: StampMitraError = core.error_from_response(response)
-                if core.should_retry_status(prep, response.status_code, attempt):
+                if core.should_retry_status(prep, response.status_code, attempt, err):
                     delay = core.backoff_delay(attempt, core.retry_after_seconds(response))
                     core.log_retry(prep, f"status {response.status_code}", delay, attempt)
                     core.sleep(delay)
@@ -200,6 +206,9 @@ class AsyncStampMitra:
         self.usage = ra.Usage(self)
         self.logs = ra.Logs(self)
         self.webhooks = ra.Webhooks(self)
+        self.stamp_duty_wallet = ra.StampDutyWallet(self)
+        self.service_fee_wallet = ra.ServiceFeeWallet(self)
+        self.account = ra.Account(self)
 
     @property
     def environment(self) -> str:
@@ -235,10 +244,13 @@ class AsyncStampMitra:
         path_params: Optional[Mapping[str, str]] = None,
         query: Optional[Mapping[str, Any]] = None,
         body: Optional[Dict[str, Any]] = None,
+        multipart: Optional[Multipart] = None,
         options: Optional[RequestOptions] = None,
     ) -> httpx.Response:
         core = self._core
-        prep: PreparedRequest = core.prepare(op, path_params=path_params, query=query, body=body, options=options)
+        prep: PreparedRequest = core.prepare(
+            op, path_params=path_params, query=query, body=body, multipart=multipart, options=options
+        )
         attempt = 0
         while True:
             core.log_request(prep, attempt)
@@ -258,7 +270,7 @@ class AsyncStampMitra:
             core.log_response(prep, response, time.monotonic() - started)
             if not 200 <= response.status_code < 300:
                 err: StampMitraError = core.error_from_response(response)
-                if core.should_retry_status(prep, response.status_code, attempt):
+                if core.should_retry_status(prep, response.status_code, attempt, err):
                     delay = core.backoff_delay(attempt, core.retry_after_seconds(response))
                     core.log_retry(prep, f"status {response.status_code}", delay, attempt)
                     await core.async_sleep(delay)

@@ -1,0 +1,38 @@
+{
+  "name": "POST /v1/verify/pan-to-udyam - success",
+  "operation": {
+    "method": "POST",
+    "path": "/v1/verify/pan-to-udyam"
+  },
+  "scenario": "success",
+  "source": "spec-example",
+  "description": "Success",
+  "request": {
+    "method": "POST",
+    "path": "/v1/verify/pan-to-udyam",
+    "headers": {
+      "Authorization": "Bearer sk_test_EXAMPLEKEY00000000",
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Idempotency-Key": "7b1d2c58-4f1a-4c1e-9a53-0d6f7e2b9c11"
+    },
+    "body": {
+      "pan": "ABCPV1234D"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "referenceId": "SMV-20260927-0A44B2",
+      "verificationId": "VRF-6N2P8W4RJ7ZK",
+      "found": true,
+      "status": "SUCCESS",
+      "pan": "ABCPV1234D",
+      "udyam": "UDYAM-MH-26-1234567",
+      "udyamNumber": "UDYAM-MH-26-1234567"
+    }
+  }
+}

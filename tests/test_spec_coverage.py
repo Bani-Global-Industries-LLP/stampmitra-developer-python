@@ -27,6 +27,7 @@ def test_coverage_script_passes():
 
 
 ORDER = {"externalOrderId": "o", "externalCustomerId": "c", "serviceCode": "s"}
+ESTAMP_ORDER = {"stamps": [{"state": "MH", "articleCode": "ART1", "denomination": 100, "firstParty": "A"}]}
 CALLS: List[Tuple[str, Any]] = [
     ("verify.pan", lambda c: c.verify.pan("ABCDE1234F")),
     ("verify.gstin", lambda c: c.verify.gstin("07AAAAA1111A1Z1")),
@@ -59,6 +60,37 @@ CALLS: List[Tuple[str, Any]] = [
     ("logs.list", lambda c: c.logs.list()),
     ("webhooks.events.list", lambda c: c.webhooks.events.list()),
     ("webhooks.events.replay", lambda c: c.webhooks.events.replay("e")),
+    ("estamp.get_states_availability", lambda c: c.estamp.get_states_availability()),
+    ("estamp.get_state", lambda c: c.estamp.get_state("MH")),
+    ("estamp.get_state_requirements", lambda c: c.estamp.get_state_requirements("MH")),
+    ("estamp.list_districts", lambda c: c.estamp.list_districts("MH")),
+    ("estamp.list_sros", lambda c: c.estamp.list_sros("MH", "PUNE")),
+    ("estamp.get_wallet", lambda c: c.estamp.get_wallet()),
+    ("estamp.orders.validate", lambda c: c.estamp.orders.validate(ESTAMP_ORDER)),
+    ("estamp.orders.create", lambda c: c.estamp.orders.create(ESTAMP_ORDER)),
+    ("estamp.orders.list", lambda c: c.estamp.orders.list()),
+    ("estamp.orders.get", lambda c: c.estamp.orders.get("eo")),
+    ("estamp.orders.cancel", lambda c: c.estamp.orders.cancel("eo")),
+    ("estamp.orders.export", lambda c: c.estamp.orders.export("eo")),
+    ("estamp.orders.list_stamps", lambda c: c.estamp.orders.list_stamps("eo")),
+    ("estamp.orders.upload_document", lambda c: c.estamp.orders.upload_document("eo", b"%PDF-1.4", filename="pan.pdf")),
+    ("estamp.stamps.get", lambda c: c.estamp.stamps.get("es")),
+    ("estamp.stamps.cancel", lambda c: c.estamp.stamps.cancel("es")),
+    ("estamp.stamps.replace", lambda c: c.estamp.stamps.replace("es")),
+    ("estamp.stamps.set_pan_card", lambda c: c.estamp.stamps.set_pan_card("es", "https://cdn.example.com/p.jpg")),
+    ("estamp.stamps.get_certificate", lambda c: c.estamp.stamps.get_certificate("es")),
+    ("stamp_duty_wallet.get_balance", lambda c: c.stamp_duty_wallet.get_balance()),
+    ("stamp_duty_wallet.topup", lambda c: c.stamp_duty_wallet.topup(1000)),
+    ("stamp_duty_wallet.list_transactions", lambda c: c.stamp_duty_wallet.list_transactions()),
+    ("stamp_duty_wallet.list_invoices", lambda c: c.stamp_duty_wallet.list_invoices()),
+    ("stamp_duty_wallet.get_invoice", lambda c: c.stamp_duty_wallet.get_invoice("inv")),
+    ("service_fee_wallet.get_balance", lambda c: c.service_fee_wallet.get_balance()),
+    ("service_fee_wallet.topup", lambda c: c.service_fee_wallet.topup(500)),
+    ("service_fee_wallet.list_transactions", lambda c: c.service_fee_wallet.list_transactions()),
+    ("service_fee_wallet.list_invoices", lambda c: c.service_fee_wallet.list_invoices()),
+    ("service_fee_wallet.get_invoice", lambda c: c.service_fee_wallet.get_invoice("inv")),
+    ("account.balance", lambda c: c.account.balance()),
+    ("account.usage", lambda c: c.account.usage()),
 ]
 
 
@@ -80,6 +112,7 @@ def _check(observed: Set[Tuple[str, str]]) -> None:
     tmpl = _templates()
     hit = {i for i, (m, rx) in enumerate(tmpl) if any(om == m and rx.match(op) for om, op in observed)}
     assert hit == set(range(len(tmpl))), "spec operations never exercised by an SDK call"
+    assert len(tmpl) == len(OPERATIONS) == len(CALLS) == 62
     assert {n for n, _ in CALLS} == {op.name for op in OPERATIONS}
 
 

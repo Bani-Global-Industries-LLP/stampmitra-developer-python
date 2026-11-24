@@ -1,0 +1,40 @@
+{
+  "name": "POST /v1/verify/pan-to-gstin - success",
+  "operation": {
+    "method": "POST",
+    "path": "/v1/verify/pan-to-gstin"
+  },
+  "scenario": "success",
+  "source": "spec-example",
+  "description": "Success",
+  "request": {
+    "method": "POST",
+    "path": "/v1/verify/pan-to-gstin",
+    "headers": {
+      "Authorization": "Bearer sk_test_EXAMPLEKEY00000000",
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Idempotency-Key": "7b1d2c58-4f1a-4c1e-9a53-0d6f7e2b9c11"
+    },
+    "body": {
+      "pan": "ABCDE1234F"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "referenceId": "SMV-20260927-1L67Z5",
+      "found": true,
+      "gstins": [
+        {
+          "gstin": "07AAAAA1111A1Z1",
+          "state": "Delhi",
+          "status": "Active"
+        }
+      ]
+    }
+  }
+}
