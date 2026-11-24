@@ -18,13 +18,13 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any, Awaitable, Callable, Dict, List, Mapping, Optional, TypeVar, cast
+from typing import Any, Awaitable, Callable, Dict, List, Mapping, Optional, Tuple, TypeVar, cast
 from urllib.parse import quote, urlencode, urlsplit
 
 import httpx
 from pydantic import ValidationError as PydanticValidationError
 
-from ._ops import Op
+from ._ops import FilePart, Op
 from ._redact import redact_body, redact_headers
 from ._version import __version__
 from .errors import (
@@ -33,6 +33,7 @@ from .errors import (
     AuthenticationError,
     ConfigurationError,
     ConflictError,
+    FieldIssue,
     NotFoundError,
     PaymentRequiredError,
     PermissionDeniedError,
@@ -79,6 +80,8 @@ class PreparedRequest:
     #: Safe to re-send automatically after a response: GET, or POST carrying an Idempotency-Key
     #: (every POST except webhook replay is auto-keyed; replay is keyed only if the caller supplies one).
     retry_safe: bool
+    #: An Idempotency-Key header is present (auto-generated or caller-supplied).
+    has_key: bool = False
     body: Optional[Dict[str, Any]] = field(default=None, repr=False)
 
 
@@ -147,6 +150,7 @@ class Core:
         path_params: Optional[Mapping[str, str]] = None,
         query: Optional[Mapping[str, Any]] = None,
         body: Optional[Dict[str, Any]] = None,
+        multipart: Optional[Multipart] = None,
         options: Optional[RequestOptions] = None,
     ) -> PreparedRequest:
         options = options or RequestOptions()
@@ -155,14 +159,21 @@ class Core:
             path = path.replace("{" + name + "}", quote(value, safe=""))
         url = self.base_url + path
         if query:
-            qs = urlencode({k: str(val) for k, val in query.items() if val is not None})
+            qs = urlencode({k: _query_value(val) for k, val in query.items() if val is not None})
             if qs:
                 url += "?" + qs
         headers: Dict[str, str] = {
             "Accept": "application/json",
-            "Content-Type": "application/json",
             "User-Agent": self.user_agent,
         }
+        content: Optional[bytes] = None
+        if multipart is not None:
+            content, headers["Content-Type"] = encode_multipart(multipart.fields, multipart.files)
+        elif body is not None:
+            content = json.dumps(body, separators=(",", ":")).encode("utf-8")
+            headers["Content-Type"] = "application/json"
+        elif op.method != "GET":
+            headers["Content-Type"] = "application/json"
         headers.update(self.default_headers)
         if options.headers:
             headers.update(options.headers)
@@ -172,7 +183,6 @@ class Core:
             idem = _new_idempotency_key()  # generated once; reused across automatic retries
         if idem is not None and op.method != "GET":
             headers["Idempotency-Key"] = idem
-        content = json.dumps(body, separators=(",", ":")).encode("utf-8") if body is not None else None
         has_key = _has_header(headers, "Idempotency-Key")
         return PreparedRequest(
             op=op,
@@ -182,7 +192,8 @@ class Core:
             content=content,
             timeout=options.timeout if options.timeout is not None else self.timeout,
             max_retries=options.max_retries if options.max_retries is not None else self.max_retries,
-            retry_safe=op.method == "GET" or has_key,
+            retry_safe=not op.never_retry and (op.method == "GET" or has_key or op.retry_without_key),
+            has_key=has_key,
             body=body,
         )
 
@@ -193,11 +204,21 @@ class Core:
             return min(max(retry_after, 0.0), RETRY_AFTER_CAP)
         return self.random() * min(BACKOFF_CAP, BACKOFF_BASE * float(2**attempt))
 
-    def should_retry_status(self, prep: PreparedRequest, status: int, attempt: int) -> bool:
-        return attempt < prep.max_retries and prep.retry_safe and status in RETRY_STATUSES
+    def should_retry_status(
+        self, prep: PreparedRequest, status: int, attempt: int, err: Optional[StampMitraError] = None
+    ) -> bool:
+        if attempt >= prep.max_retries or not prep.retry_safe:
+            return False
+        if status == 429:
+            # SANDBOX_ESTAMP_ORDER_LIMIT is a quota (cancel or wait for open sandbox orders), not a rate limit.
+            return err is None or err.code != "SANDBOX_ESTAMP_ORDER_LIMIT"
+        if status == 409:
+            # Only "the first request with this key is still running": resend the identical request after Retry-After.
+            return prep.has_key and err is not None and err.code == "IDEMPOTENCY_IN_PROGRESS"
+        return status in RETRY_STATUSES
 
     def should_retry_exception(self, prep: PreparedRequest, exc: Exception, attempt: int) -> bool:
-        if attempt >= prep.max_retries:
+        if attempt >= prep.max_retries or prep.op.never_retry:
             return False
         if prep.retry_safe:
             return isinstance(exc, (httpx.TransportError,))
@@ -240,6 +261,9 @@ class Core:
             body = response.text
         code: Optional[str] = None
         field_name: Optional[str] = None
+        details: Optional[Dict[str, Any]] = None
+        issues: List[FieldIssue] = []
+        wallet: Optional[str] = None
         message = ""
         if isinstance(body, dict):
             err = body.get("error")
@@ -248,6 +272,13 @@ class Core:
                 message = _str(err.get("message")) or ""
                 request_id = _str(err.get("requestId")) or request_id
                 field_name = _str(err.get("field"))
+                raw_details = err.get("details")
+                if isinstance(raw_details, dict):
+                    details = raw_details
+                    wallet = _str(raw_details.get("wallet"))
+                    raw_errors = raw_details.get("errors")
+                    if isinstance(raw_errors, list):
+                        issues = [_issue(e) for e in raw_errors if isinstance(e, dict)]
             elif isinstance(err, str):
                 message = err
             elif isinstance(body.get("message"), str):
@@ -256,7 +287,17 @@ class Core:
             message = body.strip()[:300]
         if not message:
             message = f"HTTP {status}" + (f" {response.reason_phrase}" if response.reason_phrase else "")
-        kwargs: Dict[str, Any] = {"status": status, "code": code, "request_id": request_id, "body": body, "field": field_name}
+        kwargs: Dict[str, Any] = {
+            "status": status,
+            "code": code,
+            "request_id": request_id,
+            "body": body,
+            "field": field_name,
+            "details": details,
+            "errors": issues,
+            "wallet": wallet,
+            "retry_after": self.retry_after_seconds(response),
+        }
         if status in (400, 422):
             return ValidationError(message, **kwargs)
         if status == 401:
@@ -270,7 +311,7 @@ class Core:
         if status == 409:
             return ConflictError(message, **kwargs)
         if status == 429:
-            return RateLimitError(message, retry_after=self.retry_after_seconds(response), **kwargs)
+            return RateLimitError(message, **kwargs)
         if status >= 500:
             return UpstreamError(message, **kwargs)
         return StampMitraError(message, **kwargs)
@@ -357,6 +398,53 @@ class Core:
             self.logger.debug(
                 "stampmitra retry %s %s reason=%s delay=%.3fs next_attempt=%d", prep.method, prep.url, reason, delay, attempt + 2
             )
+
+
+@dataclass(frozen=True)
+class Multipart:
+    """A ``multipart/form-data`` body: text ``fields`` (name, value) and ``files``."""
+
+    fields: List[Tuple[str, str]]
+    files: List[FilePart]
+
+
+def encode_multipart(fields: List[Tuple[str, str]], files: List[FilePart]) -> Tuple[bytes, str]:
+    """Encode a multipart/form-data body. Returns ``(body, content_type)``; the bytes are built once, so an automatic
+    retry re-sends exactly the same body (and the same Idempotency-Key)."""
+    boundary = "stampmitra-" + os.urandom(16).hex()
+
+    def clean(v: str) -> str:
+        return v.replace("\r", "").replace("\n", "").replace('"', "%22")
+
+    out = bytearray()
+    for f in files:
+        out += (
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{clean(f.name)}"; filename="{clean(f.filename)}"\r\n'
+            f"Content-Type: {clean(f.content_type)}\r\n\r\n"
+        ).encode()
+        out += f.data + b"\r\n"
+    for name, value in fields:
+        out += f'--{boundary}\r\nContent-Disposition: form-data; name="{clean(name)}"\r\n\r\n{value}\r\n'.encode()
+    out += f"--{boundary}--\r\n".encode()
+    return bytes(out), f"multipart/form-data; boundary={boundary}"
+
+
+def _query_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))  # 500.0 -> "500"
+    return str(value)
+
+
+def _issue(e: Dict[str, Any]) -> FieldIssue:
+    idx = e.get("index")
+    return FieldIssue(
+        code=_str(e.get("code")),
+        message=_str(e.get("message")),
+        field=_str(e.get("field")),
+        index=idx if isinstance(idx, int) and not isinstance(idx, bool) else None,
+    )
 
 
 def _validate_base_url(url: str) -> str:

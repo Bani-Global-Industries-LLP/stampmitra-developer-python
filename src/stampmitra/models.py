@@ -19,17 +19,44 @@ from pydantic.alias_generators import to_camel
 
 __all__ = [
     "WEBHOOK_EVENT_TYPES",
+    "AccountBalance",
+    "AccountUsage",
     "ApiObject",
     "BankAccountVerification",
     "CinDirector",
     "CinVerification",
     "DocumentDownloadUrl",
     "DrivingLicenseVerification",
+    "EstampCertificate",
+    "EstampDistrict",
+    "EstampDocument",
+    "EstampDocumentRequirement",
+    "EstampOrder",
+    "EstampOrderAdvisory",
+    "EstampOrderCounts",
+    "EstampOrderExport",
+    "EstampOrderList",
+    "EstampOrderQuote",
+    "EstampOrderStampRef",
+    "EstampPanCardResult",
+    "EstampPanCardStatus",
+    "EstampRequirements",
+    "EstampSro",
+    "EstampStamp",
+    "EstampStampList",
+    "EstampState",
+    "EstampStateAvailability",
+    "EstampStatesAvailability",
+    "EstampValidateResult",
+    "EstampValidationIssue",
+    "EstampWallet",
+    "EstampWalletPart",
     "GstinRecord",
     "GstinVerification",
     "IfscDetails",
     "LogEntry",
     "LogsPage",
+    "Money",
     "OrderDetail",
     "OrderDocuments",
     "OrderPayment",
@@ -43,13 +70,25 @@ __all__ = [
     "RcVerification",
     "ResponseMeta",
     "Service",
+    "ServiceFeeWalletTopup",
+    "StampDutyWalletInvoice",
+    "StampDutyWalletInvoicesPage",
+    "StampDutyWalletTopup",
     "StampMitraModel",
     "UdyamVerification",
     "UsageByDay",
     "UsageByPeriod",
+    "UsageDay",
+    "UsageMonth",
     "UsagePeriod",
+    "UsageProduct",
     "UsageSummary",
     "VoterIdVerification",
+    "WalletBalance",
+    "WalletInvoice",
+    "WalletInvoicesPage",
+    "WalletTransaction",
+    "WalletTransactionsPage",
     "WebhookEvent",
     "WebhookEventsPage",
 ]
@@ -395,3 +434,391 @@ class WebhookEventsPage(StampMitraModel):
 
     items: List[Dict[str, Any]] = Field(default_factory=list)
     next_cursor: Optional[str] = None
+
+
+# ------------------------------------------------------- e-Stamp (contract 1.2.0)
+# Every field is optional (see the module docstring); money fields keep the type the API sends.
+
+
+class EstampStateAvailability(StampMitraModel):
+    code: Optional[str] = None
+    name: Optional[str] = None
+    active: Optional[bool] = None
+    e_stamp_available: Optional[bool] = Field(default=None, alias="eStampAvailable")
+    traditional_available: Optional[bool] = None
+
+
+class EstampStatesAvailability(StampMitraModel):
+    data: List[EstampStateAvailability] = Field(default_factory=list)
+    count: Optional[int] = None
+    active_count: Optional[int] = None
+
+
+class EstampState(StampMitraModel):
+    code: Optional[str] = None
+    name: Optional[str] = None
+    is_active: Optional[bool] = None
+    e_stamp_available: Optional[bool] = Field(default=None, alias="eStampAvailable")
+    traditional_available: Optional[bool] = None
+    min_amount: Optional[Any] = None  # decimal string, number (sandbox) or null
+    max_amount: Optional[Any] = None
+    sro_required: Optional[bool] = None
+    cess_required: Optional[bool] = None
+    property_area_required: Optional[bool] = None
+    father_husband_name_required: Optional[bool] = None  # None = not known, not "no"
+    first_party_address_required: Optional[bool] = None
+    pan_card_image_required: Optional[bool] = None
+    instrument_count: Optional[int] = None
+
+
+class EstampDistrict(StampMitraModel):
+    code: Optional[str] = None
+    name: Optional[str] = None
+
+
+class EstampSro(StampMitraModel):
+    value: Optional[str] = None  # send as ``sro`` on a stamp line
+    label: Optional[str] = None  # live catalogue
+    name: Optional[str] = None  # sandbox catalogue
+
+
+class EstampRequirements(StampMitraModel):
+    state: Optional[Dict[str, Any]] = None
+    category: Optional[str] = None
+    article: Optional[Dict[str, Any]] = None
+    denomination: Optional[Dict[str, Any]] = None
+    fields: List[Dict[str, Any]] = Field(default_factory=list)
+    limits: Optional[Dict[str, Any]] = None
+    meta: Optional[Dict[str, Any]] = None
+    #: A ready-to-edit order body for this state / article.
+    example_body: Optional[Dict[str, Any]] = None
+
+
+class EstampOrderQuote(StampMitraModel):
+    face_value_total: Optional[float] = None
+    service_fee_total: Optional[float] = None
+    gst_on_fee: Optional[float] = None
+    service_wallet_debit_total: Optional[float] = None
+
+
+class EstampValidationIssue(StampMitraModel):
+    index: Optional[int] = None
+    message: Optional[str] = None
+    code: Optional[str] = None
+    field: Optional[str] = None
+
+
+class EstampDocumentRequirement(StampMitraModel):
+    type: Optional[str] = None
+    required: Optional[bool] = None
+    recommended: Optional[bool] = None
+    upload_with: Optional[str] = None
+
+
+class EstampOrderCounts(StampMitraModel):
+    total: Optional[int] = None
+    e_stamp: Optional[int] = Field(default=None, alias="e_stamp")
+    traditional_stamp: Optional[int] = Field(default=None, alias="traditional_stamp")
+
+
+class EstampValidateResult(StampMitraModel):
+    valid: Optional[bool] = None
+    reference: Optional[str] = None
+    state: Optional[str] = None
+    status: Optional[str] = None  # READY_TO_PLACE | WARNINGS | NEEDS_INFORMATION (treat unknown values as unknown-safe)
+    is_test: Optional[bool] = None
+    counts: Optional[EstampOrderCounts] = None
+    errors: List[EstampValidationIssue] = Field(default_factory=list)
+    warnings: List[EstampValidationIssue] = Field(default_factory=list)
+    quote: Optional[EstampOrderQuote] = None
+    documents_required: List[EstampDocumentRequirement] = Field(default_factory=list)
+    created_at: Optional[str] = None
+
+
+class EstampOrderStampRef(StampMitraModel):
+    id: Optional[str] = None
+    client_reference: Optional[str] = None
+
+
+class EstampOrderAdvisory(StampMitraModel):
+    code: Optional[str] = None
+    field: Optional[str] = None
+    message: Optional[str] = None
+
+
+class EstampOrder(StampMitraModel):
+    id: Optional[str] = None
+    order_id: Optional[str] = None
+    reference: Optional[str] = None
+    state: Optional[str] = None
+    status: Optional[str] = None
+    is_test: Optional[bool] = None
+    counts: Optional[EstampOrderCounts] = None
+    stamp_count: Optional[int] = None
+    stamps: List[EstampOrderStampRef] = Field(default_factory=list)
+    documents: Optional[Dict[str, Any]] = None  # {"panCard": "MISSING" | "RECEIVED"}
+    advisories: List[EstampOrderAdvisory] = Field(default_factory=list)
+    errors: List[Any] = Field(default_factory=list)
+    warnings: List[Any] = Field(default_factory=list)
+    warnings_acknowledged: Optional[bool] = None
+    failure: Optional[Dict[str, Any]] = None
+    sandbox: Optional[Dict[str, Any]] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class EstampOrderList(StampMitraModel):
+    items: List[EstampOrder] = Field(default_factory=list)
+    next_cursor: Optional[str] = None
+    data: List[EstampOrder] = Field(default_factory=list)
+    pagination: Optional[Dict[str, Any]] = None
+
+
+class EstampOrderExport(StampMitraModel):
+    filename: Optional[str] = None
+    csv: Optional[str] = None
+
+
+class EstampPanCardStatus(StampMitraModel):
+    #: NOT_PROVIDED, PROCESSING, VERIFIED, IN_REVIEW, REJECTED or FAILED. Advisory: never blocks an order.
+    status: Optional[str] = None
+    code: Optional[str] = None
+    message: Optional[str] = None
+
+
+class EstampStamp(StampMitraModel):
+    id: Optional[str] = None
+    client_reference: Optional[str] = None
+    bulk_order_id: Optional[str] = None
+    status: Optional[str] = None
+    verified: Optional[bool] = None
+    pan_card: Optional[EstampPanCardStatus] = None
+    state: Optional[str] = None
+    category: Optional[str] = None
+    amount: Optional[float] = None
+    uin: Optional[str] = None
+    cost_centre: Optional[str] = None
+    business_unit: Optional[str] = None
+    purpose: Optional[str] = None
+
+
+class EstampStampList(StampMitraModel):
+    items: List[EstampStamp] = Field(default_factory=list)
+    count: Optional[int] = None
+    next_cursor: Optional[str] = None
+
+
+class EstampPanCardResult(StampMitraModel):
+    stamp_id: Optional[str] = None
+    pan_card: Optional[EstampPanCardStatus] = None
+
+
+class EstampDocument(StampMitraModel):
+    document_id: Optional[str] = None
+    order_id: Optional[str] = None
+    type: Optional[str] = None
+    file_name: Optional[str] = None
+    mime_type: Optional[str] = None
+    size_bytes: Optional[int] = None
+    received_at: Optional[str] = None
+    status: Optional[str] = None
+
+
+class EstampCertificate(StampMitraModel):
+    available: Optional[bool] = None
+    status: Optional[str] = None  # not_yet_available | available
+    download_url: Optional[str] = None
+    expires_at: Optional[str] = None
+    certificate_number: Optional[str] = None
+
+
+# -------------------------------------------------------------------- wallets
+
+
+class EstampWalletPart(StampMitraModel):
+    balance: Optional[str] = None
+    held: Optional[str] = None
+    available: Optional[str] = None
+
+
+class EstampWallet(StampMitraModel):
+    balance: Optional[str] = None
+    held: Optional[str] = None
+    available: Optional[str] = None
+    currency: Optional[str] = None
+    service_fee: Optional[EstampWalletPart] = None
+    mode: Optional[str] = None
+    simulated: Optional[bool] = None
+
+
+class WalletBalance(StampMitraModel):
+    balance: Optional[str] = None
+    currency: Optional[str] = None
+
+
+class StampDutyWalletTopup(StampMitraModel):
+    """Read every amount from the response; the SDK never computes fees. ``base_amount``, ``gst_amount`` and
+    ``total_charged`` are numbers; ``processing_fee_percent``, ``processing_fee_amount`` and ``credit_amount`` are
+    strings. ``topup_id`` is only sent for live keys (it is the invoice id)."""
+
+    base_amount: Optional[float] = None
+    processing_fee_percent: Optional[str] = None
+    processing_fee_amount: Optional[str] = None
+    gst_amount: Optional[float] = None
+    total_charged: Optional[float] = None
+    credit_amount: Optional[str] = None
+    topup_id: Optional[str] = None
+    razorpay_order_id: Optional[str] = None
+    razorpay_key_id: Optional[str] = None
+    sandbox: Optional[bool] = None
+    credited: Optional[str] = None
+    balance: Optional[str] = None
+    currency: Optional[str] = None
+    notice: Optional[str] = None
+
+
+class ServiceFeeWalletTopup(StampMitraModel):
+    """Every amount is a string, as sent."""
+
+    base_amount: Optional[str] = None
+    gst_amount: Optional[str] = None
+    processing_fee_percent: Optional[str] = None
+    processing_fee_amount: Optional[str] = None
+    credit_amount: Optional[str] = None
+    total_charged: Optional[str] = None
+    razorpay_order_id: Optional[str] = None
+    razorpay_key_id: Optional[str] = None
+    sandbox: Optional[bool] = None
+    credited: Optional[str] = None
+    balance: Optional[str] = None
+    currency: Optional[str] = None
+    notice: Optional[str] = None
+
+
+class WalletTransaction(StampMitraModel):
+    id: Optional[str] = None
+    type: Optional[str] = None
+    amount: Optional[str] = None
+    balance_after: Optional[str] = None
+    reference_id: Optional[str] = None
+    description: Optional[str] = None
+    mode: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class WalletTransactionsPage(StampMitraModel):
+    items: List[WalletTransaction] = Field(default_factory=list)
+    next_cursor: Optional[str] = None
+
+
+class StampDutyWalletInvoice(StampMitraModel):
+    """GST tax invoice for the processing fee of a Stamp Duty top-up."""
+
+    id: Optional[str] = None
+    invoice_number: Optional[str] = None
+    razorpay_order_id: Optional[str] = None
+    base_amount: Optional[str] = None
+    gst_amount: Optional[str] = None
+    total_charged: Optional[str] = None
+    credited_amount: Optional[str] = None
+    gstin: Optional[str] = None
+    gstin_verified: Optional[bool] = None
+    legal_business_name: Optional[str] = None
+    status: Optional[str] = None
+    paid_at: Optional[str] = None
+
+
+class StampDutyWalletInvoicesPage(StampMitraModel):
+    items: List[StampDutyWalletInvoice] = Field(default_factory=list)
+    next_cursor: Optional[str] = None
+    notice: Optional[str] = None
+
+
+class WalletInvoice(StampMitraModel):
+    id: Optional[str] = None
+    invoice_number: Optional[str] = None
+    base_amount: Optional[str] = None
+    gst_amount: Optional[str] = None
+    total_charged: Optional[str] = None
+    gstin: Optional[str] = None
+    gstin_verified: Optional[bool] = None
+    legal_business_name: Optional[str] = None
+    status: Optional[str] = None
+    paid_at: Optional[str] = None
+
+
+class WalletInvoicesPage(StampMitraModel):
+    items: List[WalletInvoice] = Field(default_factory=list)
+    next_cursor: Optional[str] = None
+
+
+# -------------------------------------------------------------------- account
+
+
+class Money(StampMitraModel):
+    paise: Optional[int] = None
+    rupees: Optional[float] = None
+
+
+class AccountBalance(StampMitraModel):
+    generated_at: Optional[str] = None
+    environment: Optional[str] = None  # LIVE | SANDBOX
+    sandbox: Optional[bool] = None
+    notice: Optional[str] = None
+    currency: Optional[str] = None
+    balance: Optional[Money] = None
+    available: Optional[Money] = None
+    state: Optional[str] = None  # OK | LOW_BALANCE | FINISHED
+    low_balance: Optional[bool] = None
+    low_balance_threshold: Optional[Money] = None
+    estimated_calls_remaining: Optional[Dict[str, Any]] = None
+    last_top_up: Optional[Dict[str, Any]] = None
+    signup_credit: Optional[Dict[str, Any]] = None
+
+
+class UsageProduct(StampMitraModel):
+    service_code: Optional[str] = None
+    name: Optional[str] = None
+    requests: Optional[int] = None
+    billed_requests: Optional[int] = None
+    failed_not_billed: Optional[int] = None
+    success_not_billed: Optional[int] = None
+    pending_billing: Optional[int] = None
+    spend: Optional[Money] = None
+
+
+class UsageDay(StampMitraModel):
+    date: Optional[str] = None
+    requests: Optional[int] = None
+    billed_requests: Optional[int] = None
+    failed_not_billed: Optional[int] = None
+    success_not_billed: Optional[int] = None
+    pending_billing: Optional[int] = None
+    spend: Optional[Money] = None
+
+
+class UsageMonth(StampMitraModel):
+    month: Optional[str] = None
+    from_: Optional[str] = Field(default=None, alias="from")
+    to: Optional[str] = None
+    gst_included: Optional[bool] = None
+    requests: Optional[int] = None
+    billed_requests: Optional[int] = None
+    failed_not_billed: Optional[int] = None
+    success_not_billed: Optional[int] = None
+    pending_billing: Optional[int] = None
+    spend: Optional[Money] = None
+    by_product: List[UsageProduct] = Field(default_factory=list)
+    daily: List[UsageDay] = Field(default_factory=list)
+
+
+class AccountUsage(StampMitraModel):
+    generated_at: Optional[str] = None
+    environment: Optional[str] = None
+    sandbox: Optional[bool] = None
+    notice: Optional[str] = None
+    timezone: Optional[str] = None
+    current_month: Optional[UsageMonth] = None
+    previous_month: Optional[UsageMonth] = None
+    today: Optional[Dict[str, Any]] = None
+    limits: Optional[Dict[str, Any]] = None

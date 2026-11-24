@@ -2,17 +2,36 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Mapping, Optional
+import os
+from decimal import Decimal
+from typing import IO, TYPE_CHECKING, Any, Dict, Iterator, List, Mapping, Optional, Union
 
 from . import _ops as ops
-from ._core import RequestOptions
+from ._core import Multipart, RequestOptions
 from ._webhooks import construct_event, verify_signature
 from .models import (
+    AccountBalance,
+    AccountUsage,
     ApiObject,
     BankAccountVerification,
     CinVerification,
     DocumentDownloadUrl,
     DrivingLicenseVerification,
+    EstampCertificate,
+    EstampDistrict,
+    EstampDocument,
+    EstampOrder,
+    EstampOrderExport,
+    EstampOrderList,
+    EstampPanCardResult,
+    EstampRequirements,
+    EstampSro,
+    EstampStamp,
+    EstampStampList,
+    EstampState,
+    EstampStatesAvailability,
+    EstampValidateResult,
+    EstampWallet,
     GstinVerification,
     LogEntry,
     LogsPage,
@@ -28,17 +47,29 @@ from .models import (
     PaymentIntent,
     RcVerification,
     Service,
+    ServiceFeeWalletTopup,
+    StampDutyWalletInvoice,
+    StampDutyWalletInvoicesPage,
+    StampDutyWalletTopup,
     UdyamVerification,
     UsageSummary,
     VoterIdVerification,
+    WalletBalance,
+    WalletInvoice,
+    WalletInvoicesPage,
+    WalletTransaction,
+    WalletTransactionsPage,
     WebhookEventsPage,
 )
+from .params import EstampOrderRequest
 
 if TYPE_CHECKING:
     from ._client import StampMitra
 
 Options = Optional[RequestOptions]
 DateLike = ops.DateLike
+OrderBody = Union[EstampOrderRequest, Mapping[str, Any]]
+FileInput = Union[str, "os.PathLike[str]", bytes, IO[bytes]]
 
 
 class _Resource:
@@ -106,6 +137,11 @@ class Services(_Resource):
 
 
 class Estamp(_Resource):
+    def __init__(self, client: StampMitra) -> None:
+        super().__init__(client)
+        self.orders = EstampOrders(client)
+        self.stamps = EstampStamps(client)
+
     def get_schema(self, service_code: str, *, options: Options = None) -> ApiObject:
         return self._c._call(
             ops.ESTAMP_SCHEMA, path_params={"serviceCode": ops.path_segment(service_code, "serviceCode")}, options=options
@@ -135,6 +171,44 @@ class Estamp(_Resource):
         return self._c._call(
             ops.ESTAMP_PARTIES, path_params={"orderId": ops.path_segment(order_id, "orderId")}, body=dict(body), options=options
         )
+
+    def get_states_availability(self, *, active: Optional[bool] = None, options: Options = None) -> EstampStatesAvailability:
+        """Live availability per state; ``active=True`` returns only states accepting orders right now."""
+        return self._c._call(ops.ESTAMP_STATES_AVAILABILITY, query={"active": active}, options=options)
+
+    def get_state(self, state_code: str, *, options: Options = None) -> EstampState:
+        return self._c._call(ops.ESTAMP_STATE, path_params={"stateCode": _seg(state_code, "stateCode")}, options=options)
+
+    def get_state_requirements(
+        self,
+        state_code: str,
+        *,
+        article_code: Optional[str] = None,
+        denomination: Union[int, float, Decimal, None] = None,
+        category: Optional[str] = None,
+        options: Options = None,
+    ) -> EstampRequirements:
+        """Required / optional fields for a stamp combination; ``example_body`` is a ready-to-edit order body."""
+        return self._c._call(
+            ops.ESTAMP_REQUIREMENTS,
+            path_params={"stateCode": _seg(state_code, "stateCode")},
+            query={"articleCode": article_code, "denomination": denomination, "category": category},
+            options=options,
+        )
+
+    def list_districts(self, state_code: str, *, options: Options = None) -> List[EstampDistrict]:
+        return self._c._call_list(ops.ESTAMP_DISTRICTS, path_params={"stateCode": _seg(state_code, "stateCode")}, options=options)
+
+    def list_sros(self, state_code: str, district_code: str, *, options: Options = None) -> List[EstampSro]:
+        return self._c._call_list(
+            ops.ESTAMP_SROS,
+            path_params={"stateCode": _seg(state_code, "stateCode"), "districtCode": _seg(district_code, "districtCode")},
+            options=options,
+        )
+
+    def get_wallet(self, *, options: Options = None) -> EstampWallet:
+        """Both wallets (Stamp Duty and Service Fee) in one call."""
+        return self._c._call(ops.ESTAMP_WALLET, options=options)
 
 
 class Orders(_Resource):
@@ -256,3 +330,199 @@ class Webhooks(_Resource):
 
     verify_signature = staticmethod(verify_signature)
     construct_event = staticmethod(construct_event)
+
+
+def _seg(value: str, field: str) -> str:
+    return ops.path_segment(value, field)
+
+
+class EstampOrders(_Resource):
+    """e-Stamp orders (``client.estamp.orders``). One order covers exactly one state."""
+
+    def validate(self, body: OrderBody, *, options: Options = None) -> EstampValidateResult:
+        """Dry run of an order body: nothing is created or billed. ``valid`` / ``errors`` / ``warnings`` / ``quote`` hold the
+        findings. Not keyed; retried on 429/502/503/504 (it is x-retry-safe)."""
+        return self._c._call(
+            ops.ESTAMP_ORDERS_VALIDATE, body=ops.estamp_order_body(body, self._c._v, strict=False), options=options
+        )
+
+    def create(self, body: OrderBody, *, options: Options = None) -> EstampOrder:
+        """Create an order (HTTP 201). The API REQUIRES an ``Idempotency-Key``: one is generated when you do not pass
+        ``RequestOptions(idempotency_key=...)`` and reused across automatic retries. Derive your own from something stable
+        you own to make a retry after a crash safe. A short wallet is :class:`PaymentRequiredError` (``.wallet``)."""
+        return self._c._call(ops.ESTAMP_ORDERS_CREATE, body=ops.estamp_order_body(body, self._c._v, strict=True), options=options)
+
+    def list(
+        self, *, page: Optional[int] = None, limit: Optional[int] = None, cursor: Optional[str] = None, options: Options = None
+    ) -> EstampOrderList:
+        return self._c._call(ops.ESTAMP_ORDERS_LIST, query={"page": page, "limit": limit, "cursor": cursor}, options=options)
+
+    def iter_all(self, *, limit: Optional[int] = None, options: Options = None) -> Iterator[EstampOrder]:
+        """Iterate every order, following ``nextCursor``."""
+        cursor: Optional[str] = None
+        while True:
+            result = self.list(limit=limit, cursor=cursor, options=options)
+            yield from result.items
+            if not result.next_cursor or not result.items:
+                return
+            cursor = result.next_cursor
+
+    def get(self, order_id: str, *, options: Options = None) -> EstampOrder:
+        return self._c._call(ops.ESTAMP_ORDERS_GET, path_params={"id": _seg(order_id, "id")}, options=options)
+
+    def cancel(self, order_id: str, *, options: Options = None) -> EstampOrder:
+        """Never automatically retried."""
+        return self._c._call(ops.ESTAMP_ORDERS_CANCEL, path_params={"id": _seg(order_id, "id")}, options=options)
+
+    def export(self, order_id: str, *, options: Options = None) -> EstampOrderExport:
+        return self._c._call(ops.ESTAMP_ORDERS_EXPORT, path_params={"id": _seg(order_id, "id")}, options=options)
+
+    def list_stamps(self, order_id: str, *, options: Options = None) -> EstampStampList:
+        return self._c._call(ops.ESTAMP_ORDERS_STAMPS, path_params={"id": _seg(order_id, "id")}, options=options)
+
+    def upload_document(
+        self,
+        order_id: str,
+        file: FileInput,
+        *,
+        filename: Optional[str] = None,
+        content_type: Optional[str] = None,
+        type: Optional[str] = "pan_card",
+        options: Options = None,
+    ) -> EstampDocument:
+        """Upload the payer's PAN card (PDF, JPEG or PNG, up to 10 MB) as ``multipart/form-data`` (part ``file``, plus the
+        optional text part ``type``, only ``pan_card``). ``file`` is a path, ``bytes`` or a binary file object; the content
+        type is taken from ``content_type``, else the file name, else the file's first bytes. The PAN card is advisory and
+        never blocks an order. An ``Idempotency-Key`` is generated if you do not pass one (retried with the same key)."""
+        fields, part = ops.document_upload(file, filename, content_type, type, self._c._v)
+        return self._c._call(
+            ops.ESTAMP_ORDERS_UPLOAD,
+            path_params={"orderId": _seg(order_id, "orderId")},
+            multipart=Multipart(fields, [part]),
+            options=options,
+        )
+
+
+class EstampStamps(_Resource):
+    """Individual stamps (``client.estamp.stamps``)."""
+
+    def get(self, stamp_id: str, *, options: Options = None) -> EstampStamp:
+        return self._c._call(ops.ESTAMP_STAMPS_GET, path_params={"stampId": _seg(stamp_id, "stampId")}, options=options)
+
+    def cancel(self, stamp_id: str, *, options: Options = None) -> EstampStamp:
+        """Never automatically retried."""
+        return self._c._call(ops.ESTAMP_STAMPS_CANCEL, path_params={"stampId": _seg(stamp_id, "stampId")}, options=options)
+
+    def replace(self, stamp_id: str, *, options: Options = None) -> EstampStamp:
+        """Never automatically retried."""
+        return self._c._call(ops.ESTAMP_STAMPS_REPLACE, path_params={"stampId": _seg(stamp_id, "stampId")}, options=options)
+
+    def set_pan_card(self, stamp_id: str, pan_card_image: str, *, options: Options = None) -> EstampPanCardResult:
+        """Link the payer's PAN card by ``https://`` URL. HTTP 202: it is checked afterwards, so ``pan_card.status`` is
+        ``PROCESSING``; read the outcome from ``stamps.get(...).pan_card``. Advisory; never automatically retried."""
+        return self._c._call(
+            ops.ESTAMP_STAMPS_PAN_CARD,
+            path_params={"stampId": _seg(stamp_id, "stampId")},
+            body=ops.pan_card_body(pan_card_image, self._c._v),
+            options=options,
+        )
+
+    def get_certificate(self, stamp_id: str, *, options: Options = None) -> EstampCertificate:
+        """``available`` is False (``status="not_yet_available"``) until the certificate has been issued."""
+        return self._c._call(ops.ESTAMP_STAMPS_CERTIFICATE, path_params={"stampId": _seg(stamp_id, "stampId")}, options=options)
+
+
+class StampDutyWallet(_Resource):
+    """The Stamp Duty wallet (``client.stamp_duty_wallet``): holds the duty paid to the state."""
+
+    def get_balance(self, *, options: Options = None) -> WalletBalance:
+        return self._c._call(ops.SDW_BALANCE, options=options)
+
+    def topup(self, base_amount: Union[int, float, Decimal], *, options: Options = None) -> StampDutyWalletTopup:
+        """Add ``base_amount`` rupees. The wallet is credited exactly that amount; a processing fee plus GST on that fee is
+        charged on top. Read every figure from the response (the SDK does not compute fees), and fetch the GST tax invoice
+        for the fee with :meth:`get_invoice`. Never automatically retried."""
+        return self._c._call(ops.SDW_TOPUP, body=ops.topup_body(base_amount, self._c._v), options=options)
+
+    def list_transactions(
+        self, *, limit: Optional[int] = None, cursor: Optional[str] = None, options: Options = None
+    ) -> WalletTransactionsPage:
+        return self._c._call(ops.SDW_TRANSACTIONS, query={"limit": limit, "cursor": cursor}, options=options)
+
+    def iter_transactions(self, *, limit: Optional[int] = None, options: Options = None) -> Iterator[WalletTransaction]:
+        cursor: Optional[str] = None
+        while True:
+            page = self.list_transactions(limit=limit, cursor=cursor, options=options)
+            yield from page.items
+            if not page.next_cursor or not page.items:
+                return
+            cursor = page.next_cursor
+
+    def list_invoices(
+        self, *, limit: Optional[int] = None, cursor: Optional[str] = None, options: Options = None
+    ) -> StampDutyWalletInvoicesPage:
+        return self._c._call(ops.SDW_INVOICES, query={"limit": limit, "cursor": cursor}, options=options)
+
+    def iter_invoices(self, *, limit: Optional[int] = None, options: Options = None) -> Iterator[StampDutyWalletInvoice]:
+        cursor: Optional[str] = None
+        while True:
+            page = self.list_invoices(limit=limit, cursor=cursor, options=options)
+            yield from page.items
+            if not page.next_cursor or not page.items:
+                return
+            cursor = page.next_cursor
+
+    def get_invoice(self, invoice_id: str, *, options: Options = None) -> StampDutyWalletInvoice:
+        return self._c._call(ops.SDW_INVOICE, path_params={"id": _seg(invoice_id, "id")}, options=options)
+
+
+class ServiceFeeWallet(_Resource):
+    """The Service Fee wallet (``client.service_fee_wallet``): pays StampMitra's service fee."""
+
+    def get_balance(self, *, options: Options = None) -> WalletBalance:
+        return self._c._call(ops.SFW_BALANCE, options=options)
+
+    def topup(self, base_amount: Union[int, float, Decimal], *, options: Options = None) -> ServiceFeeWalletTopup:
+        """Add ``base_amount`` rupees (GST is added; every amount comes back as a string). Never automatically retried."""
+        return self._c._call(ops.SFW_TOPUP, body=ops.topup_body(base_amount, self._c._v), options=options)
+
+    def list_transactions(
+        self, *, limit: Optional[int] = None, cursor: Optional[str] = None, options: Options = None
+    ) -> WalletTransactionsPage:
+        return self._c._call(ops.SFW_TRANSACTIONS, query={"limit": limit, "cursor": cursor}, options=options)
+
+    def iter_transactions(self, *, limit: Optional[int] = None, options: Options = None) -> Iterator[WalletTransaction]:
+        cursor: Optional[str] = None
+        while True:
+            page = self.list_transactions(limit=limit, cursor=cursor, options=options)
+            yield from page.items
+            if not page.next_cursor or not page.items:
+                return
+            cursor = page.next_cursor
+
+    def list_invoices(
+        self, *, limit: Optional[int] = None, cursor: Optional[str] = None, options: Options = None
+    ) -> WalletInvoicesPage:
+        return self._c._call(ops.SFW_INVOICES, query={"limit": limit, "cursor": cursor}, options=options)
+
+    def iter_invoices(self, *, limit: Optional[int] = None, options: Options = None) -> Iterator[WalletInvoice]:
+        cursor: Optional[str] = None
+        while True:
+            page = self.list_invoices(limit=limit, cursor=cursor, options=options)
+            yield from page.items
+            if not page.next_cursor or not page.items:
+                return
+            cursor = page.next_cursor
+
+    def get_invoice(self, invoice_id: str, *, options: Options = None) -> WalletInvoice:
+        return self._c._call(ops.SFW_INVOICE, path_params={"id": _seg(invoice_id, "id")}, options=options)
+
+
+class Account(_Resource):
+    """``client.account``: wallet balance and usage of the key's environment."""
+
+    def balance(self, *, options: Options = None) -> AccountBalance:
+        return self._c._call(ops.ACCOUNT_BALANCE, options=options)
+
+    def usage(self, *, options: Options = None) -> AccountUsage:
+        return self._c._call(ops.ACCOUNT_USAGE, options=options)
