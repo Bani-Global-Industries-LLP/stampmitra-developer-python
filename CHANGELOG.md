@@ -4,6 +4,19 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-25
+
+### Fixed
+
+- `webhooks.events.replay` is never retried after a connection failure (it used to be re-sent when the TCP connection could not be established). It now follows the same never-retry set as order cancel, stamp cancel, stamp replace, the PAN-card link and both wallet top-ups, matching the other SDKs. Regression tests added (sync and async).
+- CI: the Python 3.9 matrix job is pinned to `ubuntu-24.04` (3.9 is not available on the `ubuntu-latest` runner image).
+
+### Changed
+
+- Documentation (README, docstrings, examples) now uses one customer-facing **Service wallet** (the one balance that pays verification calls and e-Stamp fees; minimum top-up ₹1,000 plus 18% GST; GST on fees is paid at top-up, and orders debit the fees before GST) alongside the **Stamp duty wallet**. `client.service_fee_wallet` and the `SERVICE_FEE` / `STAMP_DUTY` values of `details.wallet` keep their names (kept for compatibility).
+- Documentation: an order can be placed without `panCardImage`, but a PAN card is mandatory to complete the stamp. SDK validation and the `PAN_CARD_RECOMMENDED` advisory are unchanged.
+- Documentation: e-Stamp pricing per paper (₹99 procurement + ₹5 API charge + convenience fee, by default 5% of the paper's duty above ₹1,000; duty multiplied by quantity). Sandbox quotes use the same default rates as live. New accounts get no signup credit.
+
 ## [0.2.0] - 2026-11-24
 
 Aligned with StampMitra API contract 1.2.0 (bundled `spec/openapi.json`): 62 operations (was 31).
@@ -21,7 +34,7 @@ Aligned with StampMitra API contract 1.2.0 (bundled `spec/openapi.json`): 62 ope
 - Tests: golden-fixture replay of every new operation (sync and async, offline: `tests/fixtures/operations`, vendored from the spec repo), conformance against the spec repo's mock server (all 62 operations, multipart, idempotency, `Retry-After`, the never-retry set), all 54 shared retry scenarios, and a drift check between the vendored files and the spec repo.
 
 ### Changed
-- Idempotency/retry semantics aligned with the PHP, Go, Java and .NET SDKs. The backend honours `Idempotency-Key` on every metered call, so a CSPRNG UUIDv4 key is now auto-generated for **all** POSTs (verification, `estamp.calculate_duty` included) when the caller gives none, reused across automatic retries, and POSTs are retried on 429/502/503/504 and connection errors (`Retry-After` honoured, else jittered exponential backoff). Previously verification POSTs carried no key and were never retried after a response. A caller-supplied key still wins; GET is unchanged; `webhooks.events.replay` stays unkeyed and is never retried after a response.
+- Idempotency/retry semantics aligned with the PHP, Go, Java and .NET SDKs. The backend honours `Idempotency-Key` on every metered call, so a CSPRNG UUIDv4 key is now auto-generated for **all** POSTs (verification, `estamp.calculate_duty` included) when the caller gives none, reused across automatic retries, and POSTs are retried on 429/502/503/504 and connection errors (`Retry-After` honoured, else jittered exponential backoff). Previously verification POSTs carried no key and were never retried after a response. A caller-supplied key still wins; GET is unchanged; `webhooks.events.replay` stays unkeyed and is never retried after a response (0.2.1: nor after a connection failure).
 - Retries honour `Retry-After` on 429, 503 and 409 `IDEMPOTENCY_IN_PROGRESS` (the latter is retried for keyed POSTs). Order cancel, stamp cancel, stamp replace, PAN-card link and both wallet top-ups are never retried automatically (not even with a caller key); `estamp.orders.validate` is retried although un-keyed. A 429 `SANDBOX_ESTAMP_ORDER_LIMIT` (a quota, not a rate limit) is not retried.
 - Query booleans are sent as `true` / `false`, and whole-number floats without `.0`. Requests without a body (every GET, order/stamp cancel and replace) no longer send a `Content-Type` header.
 - Refreshed the vendored `tests/fixtures/webhook-signatures.json` (24 vectors, was 16) and the conformance retry harness now reads the vendored `retry-scenarios.json` and runs the optional scenarios as well.

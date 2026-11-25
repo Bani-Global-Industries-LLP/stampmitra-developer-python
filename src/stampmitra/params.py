@@ -54,7 +54,7 @@ class EstampStampLine(_EstampStampLineRequired, total=False):
     sro: str
     cessAmount: float
     propertyArea: EstampPropertyArea
-    #: https link to the payer's PAN card. Advisory: never blocks an order.
+    #: https link to the payer's PAN card. An order can be placed without it, but a PAN card is mandatory to complete the stamp.
     panCardImage: str
     costCentre: str
     businessUnit: str

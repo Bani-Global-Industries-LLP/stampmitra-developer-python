@@ -6,7 +6,7 @@
 
 Official Python SDK for the **StampMitra Developer API**: Indian identity and business verification (PAN, GSTIN, vehicle RC, Voter ID, Driving Licence, Passport, CIN, Udyam, bank account) and e-Stamp Paper orders and wallets. Sync and async clients, typed (`py.typed`, passes `mypy --strict`), `httpx` + `pydantic` v2 only.
 
-> **Status: pre-1.0 (0.2.0).** Minor releases may contain breaking changes until 1.0; see the [CHANGELOG](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/CHANGELOG.md). Not yet published to PyPI until the maintainers configure publishing (see [RELEASING.md](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/RELEASING.md)).
+> **Status: pre-1.0 (0.2.1).** Minor releases may contain breaking changes until 1.0; see the [CHANGELOG](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/CHANGELOG.md). Not yet published to PyPI until the maintainers configure publishing (see [RELEASING.md](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/RELEASING.md)).
 
 Docs: <https://developer.stampmitra.in/docs> | Python SDK page: <https://developer.stampmitra.in/sdks/python> | OpenAPI: <https://developer.stampmitra.in/openapi.json>
 
@@ -52,7 +52,7 @@ asyncio.run(main())
 | `client.estamp` | `get_schema`, `list_states`, `list_instruments`, `list_articles`, `calculate_duty`, `add_parties`, `get_states_availability`, `get_state`, `get_state_requirements`, `list_districts`, `list_sros`, `get_wallet` |
 | `client.estamp.orders` | `validate`, `create`, `list`, `iter_all`, `get`, `cancel`, `export`, `list_stamps`, `upload_document` |
 | `client.estamp.stamps` | `get`, `cancel`, `replace`, `set_pan_card`, `get_certificate` |
-| `client.stamp_duty_wallet`, `client.service_fee_wallet` | `get_balance`, `topup`, `list_transactions`, `iter_transactions`, `list_invoices`, `iter_invoices`, `get_invoice` |
+| `client.stamp_duty_wallet` (Stamp duty wallet), `client.service_fee_wallet` (Service wallet; name kept for compatibility) | `get_balance`, `topup`, `list_transactions`, `iter_transactions`, `list_invoices`, `iter_invoices`, `get_invoice` |
 | `client.account` | `balance`, `usage` |
 | `client.orders` | `create`, `get`, `get_status`, `get_payment`, `list_documents`, `get_document_download` |
 | `client.payments.intents` | `create`, `get` |
@@ -99,16 +99,21 @@ with StampMitra() as client:
 ```
 
 - **Parties.** `firstParty` / `secondParty` is a name string or an object `{name, address, phone, fatherHusbandName, gender}` (`gender` is `MALE`, `FEMALE` or `OTHER`); use the object when the state asks for an address or a father's / husband's name (`client.estamp.get_state_requirements("MH", article_code="ART1")` tells you, and its `example_body` is a ready-to-edit order). `propertyArea` is `{"unit": "Square Feet" | "Square Yard" | "Square Meters" | "Not Applicable", "value": 850}`. Typed dict shapes: `EstampOrderRequest`, `EstampStampLine`, `EstampParty`, `EstampPropertyArea`.
-- **PAN card is advisory.** It is recommended for the stamp-duty payer but never blocks an order. Send it per order with `orders.upload_document(order_id, file)` (a path, bytes or a binary file object; multipart part `file`, optional part `type` = `pan_card`), or link it per stamp with `stamps.set_pan_card(stamp_id, "https://...")` (HTTP 202; checked afterwards, read `stamps.get(...).pan_card.status`).
+- **PAN card.** You can place an order without a PAN card (`panCardImage`), but a PAN card is mandatory to complete the stamp. The SDK's validation is unchanged (the API may flag a missing card with the `PAN_CARD_RECOMMENDED` advisory). Send it per order with `orders.upload_document(order_id, file)` (a path, bytes or a binary file object; multipart part `file`, optional part `type` = `pan_card`), or link it per stamp with `stamps.set_pan_card(stamp_id, "https://...")` (HTTP 202; checked afterwards, read `stamps.get(...).pan_card.status`).
 - **Errors.** A rejected order body raises `ValidationError` with `e.errors`, a list of `FieldIssue(field, code, message, index)`; a short wallet raises `PaymentRequiredError` with `e.wallet`. `create` checks the contract's hard limits locally first (no network call, nothing billed); `validate` leaves the findings to the API.
 - **Retries.** `create` and `upload_document` are keyed and retried on 429/502/503/504, connection errors and `409 IDEMPOTENCY_IN_PROGRESS` (honouring `Retry-After`) with the same key and body; `validate` and all reads are retried too. Order cancel, stamp cancel, stamp replace, PAN-card link, both wallet top-ups and webhook replay are **never** retried automatically.
 
 ### Wallets
 
-An order draws on two wallets: the **Stamp Duty** wallet (the duty paid to the state) and the **Service Fee** wallet. Read both with `client.estamp.get_wallet()`, or each with `client.stamp_duty_wallet` / `client.service_fee_wallet` (`get_balance`, `topup`, `list_transactions`, `list_invoices`, `get_invoice`).
+Two prepaid wallets back your account:
 
-- **Stamp Duty top-up** (`client.stamp_duty_wallet.topup(1000)`): a 6% processing fee plus 18% GST on that fee is charged on top, and the wallet is credited the amount you add (here 1000). A GST tax invoice for the fee is available from `list_invoices()` / `get_invoice(id)`. The SDK computes nothing: show the payer `base_amount`, `processing_fee_amount`, `gst_amount`, `total_charged` and `credit_amount` from the response (the rates can change). `base_amount`, `gst_amount` and `total_charged` are numbers; the other amounts are strings; `topup_id` (the invoice id) is only returned for live keys.
-- **Service Fee top-up**: GST is added on `base_amount`; every amount in the response is a string.
+- The **Service wallet** is one balance. It pays verification calls and the e-Stamp fees (procurement charge, API charge and convenience fee). Top it up by at least ₹1,000 plus 18% GST. GST on fees is paid at top-up, so an order debits the fees before GST.
+- The **Stamp duty wallet** holds the statutory stamp duty that orders debit.
+
+Read both with `client.estamp.get_wallet()`, or each with `client.stamp_duty_wallet` / `client.service_fee_wallet` (`get_balance`, `topup`, `list_transactions`, `list_invoices`, `get_invoice`). The Service wallet methods keep their original name, `service_fee_wallet` (kept for compatibility). In API responses and errors the wallet names stay `SERVICE_FEE` and `STAMP_DUTY` (for example `e.wallet`). There is no signup credit for new accounts.
+
+- **Stamp duty top-up** (`client.stamp_duty_wallet.topup(1000)`): a 6% processing fee plus 18% GST on that fee is charged on top, and the wallet is credited the amount you add (here 1000). A GST tax invoice for the fee is available from `list_invoices()` / `get_invoice(id)`. The SDK computes nothing: show the payer `base_amount`, `processing_fee_amount`, `gst_amount`, `total_charged` and `credit_amount` from the response (the rates can change). `base_amount`, `gst_amount` and `total_charged` are numbers; the other amounts are strings; `topup_id` (the invoice id) is only returned for live keys.
+- **Service wallet top-up** (`client.service_fee_wallet.topup(...)`): GST is added on `base_amount`; every amount in the response is a string.
 
 See [`examples/estamp_wallets.py`](https://github.com/Bani-Global-Industries-LLP/stampmitra-developer-python/blob/main/examples/estamp_wallets.py).
 
@@ -214,9 +219,9 @@ Default `max_retries=2` with exponential backoff and full jitter (base 0.5 s, ca
 
 The backend honours `Idempotency-Key` on **every** metered call, so the SDK auto-generates a CSPRNG UUIDv4 key for **every POST** (all `verify.*` calls, `estamp.calculate_duty`, `estamp.add_parties`, `orders.create`, `payments.intents.create`) unless you pass `options=RequestOptions(idempotency_key=...)`, which always wins. The same key is reused across automatic retries, so a retried verification is replayed by the server instead of being billed twice. Each separate call gets a fresh key; reuse your own key to make several calls one logical operation. GET requests carry no key.
 
-**Never retried:** order cancel, stamp cancel, stamp replace, the PAN-card link, both wallet top-ups (they take no `Idempotency-Key`; not even when you pass one, not even on a connection error). `estamp.orders.validate` is a dry run (not keyed, safe to retry) and is retried. `estamp.orders.create` requires a key, so one is always sent. `estamp.orders.upload_document` is keyed like the other creating POSTs.
+**Never retried:** order cancel, stamp cancel, stamp replace, the PAN-card link, both wallet top-ups and webhook replay (they take no auto `Idempotency-Key`; not even when you pass one, not even on a connection error). `estamp.orders.validate` is a dry run (not keyed, safe to retry) and is retried. `estamp.orders.create` requires a key, so one is always sent. `estamp.orders.upload_document` is keyed like the other creating POSTs.
 
-**Exception: `webhooks.events.replay`** is never auto-keyed and is never retried after a response was received (it is retried only if the TCP connection could not be established). Supply an explicit `idempotency_key` if you want it keyed.
+**`webhooks.events.replay`** is in the never-retried set too: it is never auto-keyed and never retried, neither after a response nor after a connection failure. Supply an explicit `idempotency_key` if you want it keyed.
 
 > Changed in 0.2.0: verification POSTs previously carried no key and were never retried after a response; they are now keyed and retried as described above.
 
@@ -256,7 +261,7 @@ Off by default. `StampMitra(debug=True)` logs to the `stampmitra` logger (or pas
 
 ## Pricing
 
-The SDK is free and MIT-licensed. You pay only for successful API calls, from one prepaid wallet. Sandbox is free: mock data on every endpoint, and it never debits your wallet.
+The SDK is free and MIT-licensed. You pay only for successful API calls, from your prepaid Service wallet. There is no signup credit. Sandbox is free: mock data on every endpoint, and it never debits your Service wallet.
 
 Per-call rates by plan, in rupees, excluding 18% GST:
 
@@ -276,7 +281,7 @@ Per-call rates by plan, in rupees, excluding 18% GST:
 | IP allowlisting | No | No | Yes | Yes | Yes | Yes |
 | White-label and custom domain | No | No | No | Yes | No | Yes |
 
-Growth and Scale are also available yearly (₹9,990 and ₹49,990, two months free). There are separate Startup and NGO programmes. Plans, rates and limits can change, and [developer.stampmitra.in/pricing](https://developer.stampmitra.in/pricing) is the source of truth; see it for how an e-Stamp order is priced in total. API e-Stamp orders are charged per paper as a procurement charge plus an API charge (excluding GST); see [developer.stampmitra.in/pricing](https://developer.stampmitra.in/pricing) for the current rates.
+Growth and Scale are also available yearly (₹9,990 and ₹49,990, two months free). There are separate Startup and NGO programmes. Plans, rates and limits can change, and [developer.stampmitra.in/pricing](https://developer.stampmitra.in/pricing) is the source of truth; see it for how an e-Stamp order is priced in total. API e-Stamp orders are priced per paper: ₹99 procurement charge, plus ₹5 API charge, plus a convenience fee (by default 5% of that paper's duty above ₹1,000). The duty is multiplied by the quantity. Sandbox quotes use the same default rates as live; rates agreed for your account are not applied in sandbox. The fees are debited from the Service wallet before GST (GST was paid when you topped up), and the duty from the Stamp duty wallet. See [developer.stampmitra.in/pricing](https://developer.stampmitra.in/pricing) for the current rates.
 
 ## Security
 

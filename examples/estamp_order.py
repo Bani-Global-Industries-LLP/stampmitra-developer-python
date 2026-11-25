@@ -2,7 +2,7 @@
 
 Run: STAMPMITRA_API_KEY=sk_test_... python examples/estamp_order.py [path/to/pan-card.pdf]
 
-The PAN card is advisory: it is recommended for the stamp-duty payer but never blocks an order.
+The PAN card: you can place an order without it, but a PAN card is mandatory to complete the stamp.
 """
 
 import sys

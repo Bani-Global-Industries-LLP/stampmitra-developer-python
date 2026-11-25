@@ -580,7 +580,8 @@ class EstampOrderExport(StampMitraModel):
 
 
 class EstampPanCardStatus(StampMitraModel):
-    #: NOT_PROVIDED, PROCESSING, VERIFIED, IN_REVIEW, REJECTED or FAILED. Advisory: never blocks an order.
+    #: NOT_PROVIDED, PROCESSING, VERIFIED, IN_REVIEW, REJECTED or FAILED. An order can be placed without a PAN
+    #: card, but one is mandatory to complete the stamp.
     status: Optional[str] = None
     code: Optional[str] = None
     message: Optional[str] = None
@@ -678,7 +679,7 @@ class StampDutyWalletTopup(StampMitraModel):
 
 
 class ServiceFeeWalletTopup(StampMitraModel):
-    """Every amount is a string, as sent."""
+    """Service wallet top-up (name kept for compatibility; minimum Rs 1,000 plus 18% GST). Every amount is a string, as sent."""
 
     base_amount: Optional[str] = None
     gst_amount: Optional[str] = None
