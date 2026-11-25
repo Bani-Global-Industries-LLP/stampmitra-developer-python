@@ -129,12 +129,33 @@ def test_replay_is_never_auto_keyed_or_retried(client, clock):
 
 
 @respx.mock
-def test_replay_retried_only_on_connect_failure(client, clock):
+def test_replay_not_retried_after_read_timeout(client, clock):
     route = respx.post(f"{BASE}/v1/webhooks/events/evt_1/replay").mock(
         side_effect=[httpx.ReadTimeout("t"), httpx.Response(200, json={})]
     )
     with pytest.raises(Exception):  # noqa: B017
         client.webhooks.events.replay("evt_1")
+    assert route.call_count == 1
+
+
+@respx.mock
+@pytest.mark.parametrize("exc", [httpx.ConnectError("refused"), httpx.ConnectTimeout("t")])
+def test_replay_never_retried_after_connection_failure(client, clock, exc):
+    # Regression: replay used to be re-sent when the TCP connection could not be established. It must never be
+    # retried (same never-retry set as cancel, replace, PAN-card link and both top-ups).
+    route = respx.post(f"{BASE}/v1/webhooks/events/evt_1/replay").mock(side_effect=[exc, httpx.Response(200, json={})])
+    with pytest.raises(APIConnectionError):
+        client.webhooks.events.replay("evt_1")
+    assert route.call_count == 1
+
+
+@respx.mock
+async def test_async_replay_never_retried_after_connection_failure(aclient, clock):
+    route = respx.post(f"{BASE}/v1/webhooks/events/evt_1/replay").mock(
+        side_effect=[httpx.ConnectError("refused"), httpx.Response(200, json={})]
+    )
+    with pytest.raises(APIConnectionError):
+        await aclient.webhooks.events.replay("evt_1")
     assert route.call_count == 1
 
 

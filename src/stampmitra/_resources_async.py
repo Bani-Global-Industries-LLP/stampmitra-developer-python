@@ -213,7 +213,10 @@ class Estamp(_Resource):
         )
 
     async def get_wallet(self, *, options: Options = None) -> EstampWallet:
-        """Both wallets (Stamp Duty and Service Fee) in one call."""
+        """Both wallets (Stamp duty and Service wallet) in one call.
+
+        The Service wallet is under ``service_fee`` (name kept for compatibility).
+        """
         return await self._c._call(ops.ESTAMP_WALLET, options=options)
 
 
@@ -329,7 +332,7 @@ class WebhookEvents(_Resource):
             cursor = page.next_cursor
 
     async def replay(self, event_id: str, *, options: Options = None) -> ApiObject:
-        """Re-deliver a webhook event. Never auto-keyed; not retried after a response."""
+        """Re-deliver a webhook event. Never auto-keyed and never retried (not after a response or a connection failure)."""
         return await self._c._call(
             ops.WEBHOOK_EVENTS_REPLAY, path_params={"id": ops.path_segment(event_id, "id")}, body={}, options=options
         )
@@ -411,8 +414,9 @@ class EstampOrders(_Resource):
     ) -> EstampDocument:
         """Upload the payer's PAN card (PDF, JPEG or PNG, up to 10 MB) as ``multipart/form-data`` (part ``file``, plus the
         optional text part ``type``, only ``pan_card``). ``file`` is a path, ``bytes`` or a binary file object; the content
-        type is taken from ``content_type``, else the file name, else the file's first bytes. The PAN card is advisory and
-        never blocks an order. An ``Idempotency-Key`` is generated if you do not pass one (retried with the same key)."""
+        type is taken from ``content_type``, else the file name, else the file's first bytes.
+        An order can be placed without the PAN card, but a PAN card is mandatory to complete the stamp. An
+        ``Idempotency-Key`` is generated if you do not pass one (retried with the same key)."""
         fields, part = ops.document_upload(file, filename, content_type, type, self._c._v)
         return await self._c._call(
             ops.ESTAMP_ORDERS_UPLOAD,
@@ -438,7 +442,8 @@ class EstampStamps(_Resource):
 
     async def set_pan_card(self, stamp_id: str, pan_card_image: str, *, options: Options = None) -> EstampPanCardResult:
         """Link the payer's PAN card by ``https://`` URL. HTTP 202: it is checked afterwards, so ``pan_card.status`` is
-        ``PROCESSING``; read the outcome from ``stamps.get(...).pan_card``. Advisory; never automatically retried."""
+        ``PROCESSING``; read the outcome from ``stamps.get(...).pan_card``. A PAN card is mandatory to complete the
+        stamp. Never automatically retried."""
         return await self._c._call(
             ops.ESTAMP_STAMPS_PAN_CARD,
             path_params={"stampId": _seg(stamp_id, "stampId")},
@@ -454,7 +459,7 @@ class EstampStamps(_Resource):
 
 
 class StampDutyWallet(_Resource):
-    """The Stamp Duty wallet (``client.stamp_duty_wallet``): holds the duty paid to the state."""
+    """The Stamp duty wallet (``client.stamp_duty_wallet``): holds the duty paid to the state."""
 
     async def get_balance(self, *, options: Options = None) -> WalletBalance:
         return await self._c._call(ops.SDW_BALANCE, options=options)
@@ -504,7 +509,9 @@ class StampDutyWallet(_Resource):
 
 
 class ServiceFeeWallet(_Resource):
-    """The Service Fee wallet (``client.service_fee_wallet``): pays StampMitra's service fee."""
+    """The Service wallet (``client.service_fee_wallet``; the name is kept for compatibility): one balance that pays
+    verification calls and the e-Stamp fees. Minimum top-up Rs 1,000 plus 18% GST; GST on fees is paid at top-up, so orders
+    debit the fees before GST."""
 
     async def get_balance(self, *, options: Options = None) -> WalletBalance:
         return await self._c._call(ops.SFW_BALANCE, options=options)
@@ -550,7 +557,7 @@ class ServiceFeeWallet(_Resource):
 
 
 class Account(_Resource):
-    """``client.account``: wallet balance and usage of the key's environment."""
+    """``client.account``: Service wallet balance and usage of the key's environment."""
 
     async def balance(self, *, options: Options = None) -> AccountBalance:
         return await self._c._call(ops.ACCOUNT_BALANCE, options=options)

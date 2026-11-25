@@ -220,11 +220,9 @@ class Core:
     def should_retry_exception(self, prep: PreparedRequest, exc: Exception, attempt: int) -> bool:
         if attempt >= prep.max_retries or prep.op.never_retry:
             return False
-        if prep.retry_safe:
-            return isinstance(exc, (httpx.TransportError,))
-        # Un-keyed POST (webhook replay without a caller key): only when the failure provably happened before the
-        # request was sent (TCP connect failed / connect timed out).
-        return isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout))
+        # Never retried (cancel, replace, PAN-card link, both top-ups, webhook replay): ``never_retry`` is handled above
+        # and is not retry-safe, so a connection failure is surfaced, never re-sent.
+        return prep.retry_safe and isinstance(exc, (httpx.TransportError,))
 
     @staticmethod
     def retry_after_seconds(response: httpx.Response) -> Optional[float]:

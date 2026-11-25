@@ -87,12 +87,13 @@ class Op(Generic[T]):
     path: str  # OpenAPI path template
     model: Type[T]
     #: A CSPRNG UUIDv4 ``Idempotency-Key`` is generated when the caller gives none (reused across
-    #: automatic retries). True for every POST except webhook replay, which stays unkeyed.
+    #: automatic retries). True for every POST except webhook replay, which stays unkeyed (and is never retried).
     auto_idempotency: bool = False
     #: Response body is a JSON array of ``model`` (e.g. ``GET /v1/services``).
     is_list: bool = False
     #: Never automatically re-sent after it was sent (x-retry-safe=false: cancel, replace, PAN-card link, wallet
-    #: top-ups): not on 429/5xx, not on connection errors, and not even when the caller supplies an Idempotency-Key.
+    #: top-ups, webhook replay): not on 429/5xx, not on connection errors, and not even when the caller supplies an
+    #: Idempotency-Key.
     never_retry: bool = False
     #: Retried after a response although it carries no Idempotency-Key (x-retry-safe=true dry run: order validate).
     retry_without_key: bool = False
@@ -156,7 +157,9 @@ INTENTS_GET = _op("payments.intents.get", "GET", "/v1/payments/intents/{id}", Pa
 USAGE_SUMMARY = _op("usage.summary", "GET", "/v1/usage/summary", UsageSummary)
 LOGS_LIST = _op("logs.list", "GET", "/v1/logs", LogsPage)
 WEBHOOK_EVENTS_LIST = _op("webhooks.events.list", "GET", "/v1/webhooks/events", WebhookEventsPage)
-WEBHOOK_EVENTS_REPLAY = _op("webhooks.events.replay", "POST", "/v1/webhooks/events/{id}/replay", ApiObject, False)
+WEBHOOK_EVENTS_REPLAY = _op(
+    "webhooks.events.replay", "POST", "/v1/webhooks/events/{id}/replay", ApiObject, False, never_retry=True
+)
 
 # estamp catalogue / orders / stamps (contract 1.2.0) ----------------------
 ESTAMP_STATES_AVAILABILITY = _op(
